@@ -1,4 +1,4 @@
-package com.bazaar.app
+package com.bazaar.mu
 import expo.modules.splashscreen.SplashScreenManager
 
 import android.os.Build
