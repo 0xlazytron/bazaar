@@ -87,9 +87,9 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace 'com.bazaar.app'
+    namespace 'com.bazaar.mu'
     defaultConfig {
-        applicationId 'com.bazaar.app'
+        applicationId 'com.bazaar.mu'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1

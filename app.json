@@ -27,7 +27,7 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.bazaar.app",
+      "package": "com.bazaar.mu",
       "permissions": [
         "INTERNET",
         "CAMERA",
