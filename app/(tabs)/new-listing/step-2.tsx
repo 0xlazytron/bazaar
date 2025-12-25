@@ -1,11 +1,67 @@
-import { Stack, router } from 'expo-router';
-import React, { useState } from 'react';
-import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Stack, router, useLocalSearchParams } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import { Alert, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Path, Svg } from 'react-native-svg';
+import { getMainCategories, subscribeMainCategories } from '../../../lib/firestore';
+
+const toName = (c: any) => String(c?.name || '');
 
 export default function NewListingStep2Screen() {
+  const params = useLocalSearchParams();
   const [itemCondition, setItemCondition] = useState('New');
+  const [category, setCategory] = useState('');
   const [pricingType, setPricingType] = useState('Auction (7 days)');
+  const [price, setPrice] = useState('');
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [categories, setCategories] = useState<string[]>([]);
+
+  useEffect(() => {
+    let unsub: any;
+    (async () => {
+      const initial = await getMainCategories();
+      setCategories(initial.map((c) => toName(c)).filter(Boolean));
+      unsub = subscribeMainCategories((list) => setCategories(list.map((c) => toName(c)).filter(Boolean)));
+    })();
+    return () => unsub && unsub();
+  }, []);
+
+  const validateForm = () => {
+    if (!category) {
+      Alert.alert('Category Required', 'Please select a category for your item.');
+      return false;
+    }
+    if (!price.trim()) {
+      Alert.alert('Price Required', 'Please enter a price for your item.');
+      return false;
+    }
+    const numericPrice = parseFloat(price);
+    if (isNaN(numericPrice) || numericPrice <= 0) {
+      Alert.alert('Invalid Price', 'Please enter a valid price greater than 0.');
+      return false;
+    }
+    return true;
+  };
+
+  const handleNextStep = () => {
+    if (validateForm()) {
+      const stepData = {
+        title: params.title || '',
+        description: params.description || '',
+        images: params.images ? JSON.parse(params.images as string) : [],
+        itemCondition,
+        category,
+        pricingType,
+        price
+      };
+
+      router.push({
+        pathname: '/(tabs)/new-listing/step-3',
+        params: {
+          data: JSON.stringify(stepData)
+        }
+      });
+    }
+  };
 
   return (
     <>
@@ -13,7 +69,7 @@ export default function NewListingStep2Screen() {
       <View style={styles.container}>
         {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.backButton}
             onPress={() => router.back()}
           >
@@ -34,7 +90,7 @@ export default function NewListingStep2Screen() {
           {/* Title and Description */}
           <View style={styles.titleContainer}>
             <Text style={styles.title}>Create a New Listing</Text>
-            <Text style={styles.subtitle}>Let's help you sell your item quickly</Text>
+            <Text style={styles.subtitle}>Let&apos;s help you sell your item quickly</Text>
           </View>
 
           {/* Stepper */}
@@ -57,9 +113,9 @@ export default function NewListingStep2Screen() {
           {/* Form Card */}
           <View style={styles.card}>
             <View style={styles.cardHeader}>
-              <Text style={styles.cardTitle}>Item Category & Pricing</Text>
+              <Text style={styles.cardTitle}>Product Details</Text>
               <Text style={styles.cardSubtitle}>
-                Specify details about your item's condition{'\n'}and price
+                Specify details about your item&apos;s condition{'\n'}and price
               </Text>
             </View>
 
@@ -70,7 +126,7 @@ export default function NewListingStep2Screen() {
               </Text>
               <View style={styles.conditionContainer}>
                 {['New', 'Used', 'Defective'].map((condition) => (
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     key={condition}
                     style={styles.conditionOption}
                     onPress={() => setItemCondition(condition)}
@@ -94,8 +150,13 @@ export default function NewListingStep2Screen() {
               <Text style={styles.label}>
                 Category <Text style={styles.required}>*</Text>
               </Text>
-              <TouchableOpacity style={styles.categorySelector}>
-                <Text style={styles.categoryText}>Furniture</Text>
+              <TouchableOpacity
+                style={styles.categorySelector}
+                onPress={() => setShowCategoryModal(true)}
+              >
+                <Text style={[styles.categoryText, !category && styles.placeholderText]}>
+                  {category || 'Select a category'}
+                </Text>
                 <Svg width={17} height={17} viewBox="0 0 17 17" fill="none">
                   <Path
                     d="M4.3999 6.79999L8.3999 10.8L12.3999 6.79999"
@@ -117,10 +178,12 @@ export default function NewListingStep2Screen() {
               <View style={styles.pricingTypeContainer}>
                 {[
                   'Auction (7 days)',
+                  'Auction (1 day)',
                   'Fixed Price (Buy Now)',
-                  'Both (Auction with Buy Now option)'
+                  'Both (Auction with Buy Now Option 7 days)',
+                  'Both (Auction with Buy Now Option 1 day)'
                 ].map((type) => (
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     key={type}
                     style={styles.pricingOption}
                     onPress={() => setPricingType(type)}
@@ -142,7 +205,7 @@ export default function NewListingStep2Screen() {
             {/* Starting Price */}
             <View style={styles.formSection}>
               <Text style={styles.label}>
-                Starting Price (MUR) <Text style={styles.required}>*</Text>
+                {pricingType?.includes('Auction') ? 'Starting Price' : 'Price'} (MUR) <Text style={styles.required}>*</Text>
               </Text>
               <View style={styles.priceInputContainer}>
                 <Text style={styles.currencySymbol}>Rs</Text>
@@ -151,21 +214,23 @@ export default function NewListingStep2Screen() {
                   placeholder="0.00"
                   placeholderTextColor="#64748B"
                   keyboardType="numeric"
+                  value={price}
+                  onChangeText={setPrice}
                 />
               </View>
             </View>
 
             {/* Navigation Buttons */}
             <View style={styles.buttonContainer}>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.backStepButton}
                 onPress={() => router.back()}
               >
                 <Text style={styles.backButtonText}>Back</Text>
               </TouchableOpacity>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.nextButton}
-                onPress={() => router.push('./step-3')}
+                onPress={handleNextStep}
               >
                 <Text style={styles.nextButtonText}>Next Step</Text>
                 <Svg width={17} height={17} viewBox="0 0 17 17" fill="none">
@@ -188,6 +253,69 @@ export default function NewListingStep2Screen() {
             </View>
           </View>
         </ScrollView>
+
+        {/* Category Selection Modal */}
+        <Modal
+          visible={showCategoryModal}
+          transparent={true}
+          animationType="slide"
+          onRequestClose={() => setShowCategoryModal(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Select Category</Text>
+                <TouchableOpacity
+                  onPress={() => setShowCategoryModal(false)}
+                  style={styles.modalCloseButton}
+                >
+                  <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
+                    <Path
+                      d="M18 6L6 18M6 6L18 18"
+                      stroke="#64748B"
+                      strokeWidth={2}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </Svg>
+                </TouchableOpacity>
+              </View>
+              <ScrollView style={styles.categoryList}>
+                {categories.map((cat) => (
+                  <TouchableOpacity
+                    key={cat}
+                    style={[
+                      styles.categoryItem,
+                      category === cat && styles.categoryItemSelected
+                    ]}
+                    onPress={() => {
+                      setCategory(cat);
+                      setShowCategoryModal(false);
+                    }}
+                  >
+                    <Text style={[
+                      styles.categoryItemText,
+                      category === cat && styles.categoryItemTextSelected
+                    ]}>
+                      {cat}
+                    </Text>
+                    {category === cat && (
+                      <Svg width={20} height={20} viewBox="0 0 20 20" fill="none">
+                        <Path
+                          d="M16.6667 5L7.50004 14.1667L3.33337 10"
+                          stroke="#16A34A"
+                          strokeWidth={2}
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </Svg>
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
       </View>
     </>
   );
@@ -440,4 +568,56 @@ const styles = StyleSheet.create({
     color: 'white',
     marginRight: 8,
   },
-}); 
+  placeholderText: {
+    color: '#64748B',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: 'white',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '70%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#020817',
+  },
+  modalCloseButton: {
+    padding: 4,
+  },
+  categoryList: {
+    maxHeight: 400,
+  },
+  categoryItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  categoryItemSelected: {
+    backgroundColor: '#F0FDF4',
+  },
+  categoryItemText: {
+    fontSize: 16,
+    color: '#020817',
+  },
+  categoryItemTextSelected: {
+    color: '#16A34A',
+    fontWeight: '500',
+  },
+});

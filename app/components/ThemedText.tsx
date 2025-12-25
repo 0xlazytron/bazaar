@@ -1,7 +1,7 @@
 import { Text, TextProps } from 'react-native';
 
 interface Props extends TextProps {
-  type?: 'default' | 'defaultSemiBold' | 'title' | 'link';
+  type?: 'default' | 'defaultSemiBold' | 'title' | 'link' | 'heading';
 }
 
 export const ThemedText = ({ style, type = 'default', ...props }: Props) => {
@@ -12,6 +12,12 @@ export const ThemedText = ({ style, type = 'default', ...props }: Props) => {
       fontStyles = {
         fontSize: 32,
         fontWeight: 'bold',
+      };
+      break;
+    case 'heading':
+      fontStyles = {
+        fontSize: 24,
+        fontWeight: '600',
       };
       break;
     case 'defaultSemiBold':
@@ -28,4 +34,4 @@ export const ThemedText = ({ style, type = 'default', ...props }: Props) => {
   }
 
   return <Text style={[fontStyles, style]} {...props} />;
-}; 
+};

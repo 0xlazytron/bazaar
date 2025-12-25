@@ -1,12 +1,118 @@
-import { Stack } from 'expo-router';
-import React, { useState } from 'react';
-import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Stack, useRouter } from 'expo-router';
+import React, { useEffect, useMemo, useState } from 'react';
+import type { StyleProp, ViewStyle } from 'react-native';
+import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Path, Svg } from 'react-native-svg';
+import { getCurrentUser } from '../../lib/auth';
+import { AppNotification, markAllNotificationsAsRead, subscribeUserNotifications } from '../../lib/firestore';
+import { ImageWithLoader } from '../components/ImageWithLoader';
 
 type NotificationType = 'all' | 'unread' | 'important';
 
 export default function NotificationsScreen() {
+  const router = useRouter();
   const [activeFilter, setActiveFilter] = useState<NotificationType>('all');
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+
+  useEffect(() => {
+    const user = getCurrentUser();
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+    setUserId(user.uid);
+    const unsub = subscribeUserNotifications(user.uid, (items) => {
+      setNotifications(items);
+      setLoading(false);
+    });
+    return () => unsub();
+  }, []);
+
+  const handleMarkAllRead = async () => {
+    if (!userId) return;
+    try {
+      setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+      await markAllNotificationsAsRead(userId);
+    } catch {
+      setNotifications((prev) => [...prev]);
+    }
+  };
+
+  const formatTimeAgo = (timestamp: any) => {
+    if (!timestamp) return '';
+    const value = (timestamp as any).toDate ? (timestamp as any).toDate() : new Date(timestamp);
+    const now = new Date();
+    const diffMs = now.getTime() - value.getTime();
+    const minutes = Math.floor(diffMs / (1000 * 60));
+    if (minutes < 1) return 'Just now';
+    if (minutes < 60) return `${minutes} min ago`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours} hour${hours > 1 ? 's' : ''} ago`;
+    const days = Math.floor(hours / 24);
+    return `${days} day${days > 1 ? 's' : ''} ago`;
+  };
+
+  const filteredNotifications = useMemo(() => {
+    let items = notifications;
+    if (activeFilter === 'unread') {
+      items = items.filter((n) => !n.isRead);
+    } else if (activeFilter === 'important') {
+      items = items.filter((n) => n.type === 'tax');
+    }
+    return items;
+  }, [notifications, activeFilter]);
+
+  const getCardStyles = (notification: AppNotification): StyleProp<ViewStyle> => {
+    const stylesList: StyleProp<ViewStyle>[] = [styles.notificationCard];
+    if (!notification.isRead) {
+      stylesList.push(styles.notificationUnread);
+    }
+    if (notification.type === 'tax') {
+      stylesList.push(styles.notificationImportant);
+    }
+    if (notification.type === 'auction_won') {
+      stylesList.push(styles.notificationSuccess);
+    }
+    return stylesList;
+  };
+
+  const buildTitle = (notification: AppNotification) => {
+    if (notification.title) return notification.title;
+    if (notification.type === 'auction_outbid') return "You've been outbid";
+    if (notification.type === 'auction_won') return 'Congratulations! You won the auction';
+    if (notification.type === 'auction_bid') return 'New bid on your listing';
+    if (notification.type === 'order_placed') return 'Order placed';
+    if (notification.type === 'order_seller') return 'Your product was purchased';
+    if (notification.type === 'tax') return 'Important tax notification';
+    return 'Notification';
+  };
+
+  const buildPriceText = (notification: AppNotification) => {
+    if (notification.amount == null) return '';
+    return `Rs ${notification.amount.toLocaleString('en-IN')}`;
+  };
+
+  const handleRefresh = () => {
+    if (!userId) return;
+    setRefreshing(true);
+    let unsubscribe: (() => void) | null = null;
+    unsubscribe = subscribeUserNotifications(userId, (items) => {
+      setNotifications(items);
+      setRefreshing(false);
+      if (unsubscribe) unsubscribe();
+    });
+  };
+
+  const handleOpenNotification = (notification: AppNotification) => {
+    if (!notification.id) return;
+    router.push({
+      pathname: '/(tabs)/notification/[id]',
+      params: { id: notification.id },
+    });
+  };
 
   return (
     <>
@@ -15,7 +121,7 @@ export default function NotificationsScreen() {
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Notifications</Text>
-          <TouchableOpacity style={styles.markAllButton}>
+          <TouchableOpacity style={styles.markAllButton} onPress={handleMarkAllRead}>
             <Text style={styles.markAllText}>Mark all as read</Text>
           </TouchableOpacity>
         </View>
@@ -23,7 +129,7 @@ export default function NotificationsScreen() {
         {/* Filter Tabs */}
         <View style={styles.filterContainer}>
           <View style={styles.filterTabs}>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={[
                 styles.filterTab,
                 activeFilter === 'all' && styles.filterTabActive
@@ -35,7 +141,7 @@ export default function NotificationsScreen() {
                 activeFilter === 'all' && styles.filterTextActive
               ]}>All</Text>
             </TouchableOpacity>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={[
                 styles.filterTab,
                 activeFilter === 'unread' && styles.filterTabActive
@@ -47,7 +153,7 @@ export default function NotificationsScreen() {
                 activeFilter === 'unread' && styles.filterTextActive
               ]}>Unread</Text>
             </TouchableOpacity>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={[
                 styles.filterTab,
                 activeFilter === 'important' && styles.filterTabActive
@@ -63,147 +169,89 @@ export default function NotificationsScreen() {
         </View>
 
         {/* Notifications List */}
-        <ScrollView style={styles.content}>
-          {/* Won Auction Notification */}
-          <View style={[styles.notificationCard, styles.notificationSuccess]}>
-            <View style={styles.notificationContent}>
-              <View style={styles.productImageContainer}>
-                <Image 
-                  source={require('@/assets/images/products/iphone.png')}
-                  style={styles.productImage}
-                />
-                <View style={styles.iconContainer}>
-                  <Svg width={21} height={21} viewBox="0 0 21 21" fill="none">
-                    <Path
-                      d="M5.56966 8.09977H4.31966C3.76713 8.09977 3.23722 7.88028 2.84652 7.48958C2.45582 7.09888 2.23633 6.56897 2.23633 6.01644C2.23633 5.4639 2.45582 4.934 2.84652 4.5433C3.23722 4.1526 3.76713 3.93311 4.31966 3.93311H5.56966"
-                      stroke="#22C55E"
-                      strokeWidth={1.66667}
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                    <Path
-                      d="M15.5696 8.09977H16.8196C17.3721 8.09977 17.902 7.88028 18.2927 7.48958C18.6834 7.09888 18.9029 6.56897 18.9029 6.01644C18.9029 5.4639 18.6834 4.934 18.2927 4.5433C17.902 4.1526 17.3721 3.93311 16.8196 3.93311H15.5696"
-                      stroke="#22C55E"
-                      strokeWidth={1.66667}
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </Svg>
-                </View>
-              </View>
-              <View style={styles.notificationDetails}>
-                <View style={styles.notificationHeader}>
-                  <Text style={styles.notificationTitleSuccess}>
-                    Congratulations! You{'\n'}won the auction
-                  </Text>
-                  <Text style={styles.timeText}>2 hours ago</Text>
-                </View>
-                <Text style={styles.notificationText}>
-                  You have won the auction for{'\n'}
-                  Apple iPhone 13 Pro Max with
-                </Text>
-                <Text style={styles.priceText}>Rs 24,500</Text>
-              </View>
-              <View style={styles.actionButtons}>
-                <TouchableOpacity style={styles.closeButton}>
-                  <Svg width={17} height={17} viewBox="0 0 17 17" fill="none">
-                    <Path
-                      d="M12.4282 4.19922L4.42822 12.1992"
-                      stroke="#9CA3AF"
-                      strokeWidth={1.33333}
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                    <Path
-                      d="M4.42822 4.19922L12.4282 12.1992"
-                      stroke="#9CA3AF"
-                      strokeWidth={1.33333}
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </Svg>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.arrowButton}>
-                  <Svg width={21} height={21} viewBox="0 0 21 21" fill="none">
-                    <Path
-                      d="M8.42822 15.1992L13.4282 10.1992L8.42822 5.19922"
-                      stroke="#D1D5DB"
-                      strokeWidth={1.66667}
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </Svg>
-                </TouchableOpacity>
-              </View>
+        <ScrollView
+          style={styles.content}
+          contentContainerStyle={styles.listContent}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              tintColor="#16A34A"
+              colors={['#16A34A']}
+            />
+          }
+        >
+          {loading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="small" color="#16A34A" />
             </View>
-          </View>
-
-          {/* Outbid Notification */}
-          <View style={styles.notificationCard}>
-            <View style={styles.notificationContent}>
-              <View style={styles.productImageContainer}>
-                <Image 
-                  source={require('@/assets/images/products/ps5.png')}
-                  style={styles.productImage}
-                />
-                <View style={styles.iconContainer}>
-                  <Svg width={21} height={21} viewBox="0 0 21 21" fill="none">
-                    <Path
-                      d="M10.5697 18.5329C15.172 18.5329 18.903 14.8019 18.903 10.1995C18.903 5.59717 15.172 1.86621 10.5697 1.86621C5.96729 1.86621 2.23633 5.59717 2.23633 10.1995C2.23633 14.8019 5.96729 18.5329 10.5697 18.5329Z"
-                      stroke="#F59E0B"
-                      strokeWidth={1.66667}
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </Svg>
-                </View>
-              </View>
-              <View style={styles.notificationDetails}>
-                <View style={styles.notificationHeader}>
-                  <Text style={styles.notificationTitle}>You've been outbid</Text>
-                  <Text style={styles.timeText}>5 hours ago</Text>
-                </View>
-                <Text style={styles.notificationText}>
-                  Someone placed a higher bid on{'\n'}
-                  Sony PlayStation 5 Digital Edition.
-                </Text>
-                <Text style={styles.priceText}>Rs 18,000</Text>
-              </View>
-              <View style={styles.actionButtons}>
-                <TouchableOpacity style={styles.closeButton}>
-                  <Svg width={17} height={17} viewBox="0 0 17 17" fill="none">
-                    <Path
-                      d="M12.4282 4.19971L4.42822 12.1997"
-                      stroke="#9CA3AF"
-                      strokeWidth={1.33333}
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                    <Path
-                      d="M4.42822 4.19971L12.4282 12.1997"
-                      stroke="#9CA3AF"
-                      strokeWidth={1.33333}
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </Svg>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.arrowButton}>
-                  <Svg width={21} height={21} viewBox="0 0 21 21" fill="none">
-                    <Path
-                      d="M8.42822 15.1997L13.4282 10.1997L8.42822 5.19971"
-                      stroke="#D1D5DB"
-                      strokeWidth={1.66667}
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </Svg>
-                </TouchableOpacity>
-              </View>
+          ) : filteredNotifications.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyTitle}>No notifications</Text>
+              <Text style={styles.emptyText}>You have no notifications in this category yet.</Text>
             </View>
-          </View>
+          ) : (
+            filteredNotifications.map((notification) => {
+              const title = buildTitle(notification);
+              const priceText = buildPriceText(notification);
+              const timeText = formatTimeAgo(notification.createdAt);
+              const hasProductImage = !!notification.productImage;
+              const imageSource = hasProductImage
+                ? { uri: notification.productImage as string }
+                : require('@/assets/images/products/product-1.png');
 
-          {/* More notifications... */}
+              return (
+                <TouchableOpacity
+                  key={notification.id}
+                  style={getCardStyles(notification)}
+                  activeOpacity={0.9}
+                  onPress={() => handleOpenNotification(notification)}
+                >
+                  <View style={styles.notificationContent}>
+                    <View style={styles.productImageContainer}>
+                      <ImageWithLoader
+                        source={imageSource}
+                        style={styles.productImage}
+                        loaderSize="small"
+                        debugLabel={`Notification: ${title}`}
+                      />
+                    </View>
+                    <View style={styles.notificationDetails}>
+                      <View style={styles.notificationHeader}>
+                        <Text
+                          style={
+                            notification.type === 'auction_won'
+                              ? styles.notificationTitleSuccess
+                              : styles.notificationTitle
+                          }
+                        >
+                          {title}
+                        </Text>
+                        <Text style={styles.timeText}>{timeText}</Text>
+                      </View>
+                      <Text style={styles.notificationText} numberOfLines={2}>
+                        {notification.message}
+                      </Text>
+                      {priceText ? <Text style={styles.priceText}>{priceText}</Text> : null}
+                    </View>
+                    <View style={styles.actionButtons}>
+                      <View style={styles.arrowButton}>
+                        <Svg width={21} height={21} viewBox="0 0 21 21" fill="none">
+                          <Path
+                            d="M8.42822 15.1997L13.4282 10.1997L8.42822 5.19971"
+                            stroke="#D1D5DB"
+                            strokeWidth={1.66667}
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                        </Svg>
+                      </View>
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              );
+            })
+          )}
         </ScrollView>
       </View>
     </>
@@ -280,6 +328,9 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 16,
   },
+  listContent: {
+    paddingBottom: 24,
+  },
   notificationCard: {
     marginBottom: 8,
     borderRadius: 12,
@@ -290,6 +341,14 @@ const styles = StyleSheet.create({
   notificationSuccess: {
     backgroundColor: '#F2FCE2',
     borderColor: 'rgba(34, 197, 94, 0.3)',
+  },
+  notificationUnread: {
+    backgroundColor: '#ECFDF3',
+    borderColor: 'rgba(34, 197, 94, 0.4)',
+  },
+  notificationImportant: {
+    backgroundColor: '#FEF2F2',
+    borderColor: 'rgba(248, 113, 113, 0.4)',
   },
   notificationContent: {
     flexDirection: 'row',
@@ -363,4 +422,24 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-}); 
+  loadingContainer: {
+    paddingVertical: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyContainer: {
+    paddingVertical: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#111827',
+    marginBottom: 4,
+  },
+  emptyText: {
+    fontSize: 14,
+    color: '#6B7280',
+  },
+});

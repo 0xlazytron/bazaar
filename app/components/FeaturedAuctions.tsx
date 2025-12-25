@@ -1,6 +1,7 @@
 import { router } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Dimensions, Image, ImageSourcePropType, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { getEndingSoonProducts, getFeaturedProducts, getNewlyListedProducts, getPopularProducts, Product } from '../../lib/firestore';
 import { ProductCard } from './ProductCard';
 import { ProductType } from './ProductCard.types';
 import { ThemedText } from './ThemedText';
@@ -8,15 +9,14 @@ import { ThemedText } from './ThemedText';
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = width - 32; // Full width minus padding
 
-interface Product {
+interface UICard {
+  id: string;
   image: ImageSourcePropType;
   title: string;
   description: string;
   currentBid: number;
-  buyNowPrice: number;
   timeLeft: string;
   bids: number;
-  condition: 'New' | 'Used';
   type: ProductType;
 }
 
@@ -24,193 +24,116 @@ export function FeaturedAuctions() {
   const [activeFilter, setActiveFilter] = useState<ProductType>('Featured');
 
   const filterTabs = [
-    { 
-      id: 1, 
-      label: 'Featured' as ProductType, 
+    {
+      id: 1,
+      label: 'Featured' as ProductType,
       icon: require('../../assets/images/icons/star.png'),
       color: '#16A34A'
     },
-    { 
-      id: 2, 
-      label: 'Ending Soon' as ProductType, 
+    {
+      id: 2,
+      label: 'Ending Soon' as ProductType,
       icon: require('../../assets/images/icons/clock.png'),
       color: '#EF4444'
     },
-    { 
-      id: 3, 
-      label: 'Newly Listed' as ProductType, 
+    {
+      id: 3,
+      label: 'Newly Listed' as ProductType,
       icon: require('../../assets/images/icons/tag.png'),
       color: '#6366F1'
     },
-    { 
-      id: 4, 
-      label: 'Popular' as ProductType, 
+    {
+      id: 4,
+      label: 'Popular' as ProductType,
       icon: require('../../assets/images/icons/star-filled.png'),
       color: '#F59E0B'
     },
   ];
 
-  const featuredProducts: Product[] = [
-    {
-      image: require('../../assets/images/products/iphone13.png'),
-      title: "Apple iPhone 13 Pro Max - 256GB - Pacific Blue",
-      description: "Excellent condition, 92% battery health, includes original accessories",
-      currentBid: 24500,
-      buyNowPrice: 32000,
-      timeLeft: "2d 14h",
-      bids: 18,
-      condition: "Used",
-      type: "Featured"
-    },
-    {
-      image: require('../../assets/images/products/macbook.png'),
-      title: "MacBook Pro 16-inch M1 Pro - Space Gray",
-      description: "Like new, AppleCare+ until 2024, includes original box and charger",
-      currentBid: 185000,
-      buyNowPrice: 215000,
-      timeLeft: "1d 8h",
-      bids: 24,
-      condition: "Used",
-      type: "Featured"
-    },
-    {
-      image: require('../../assets/images/products/apple-watch.png'),
-      title: "Apple Watch Series 7 - 45mm GPS + Cellular",
-      description: "Brand new in box, never opened, full warranty",
-      currentBid: 45000,
-      buyNowPrice: 52000,
-      timeLeft: "3d 6h",
-      bids: 12,
-      condition: "New",
-      type: "Featured"
-    }
-  ];
+  const [cards, setCards] = useState<UICard[]>([]);
 
-  const endingSoonProducts: Product[] = [
-    {
-      image: require('../../assets/images/products/macbook.png'),
-      title: "MacBook Air M2 - Midnight",
-      description: "8-core CPU, 10-core GPU, 16GB RAM, 512GB SSD",
-      currentBid: 145000,
-      buyNowPrice: 165000,
-      timeLeft: "2h 30m",
-      bids: 32,
-      condition: "Used",
-      type: "Ending Soon"
-    },
-    {
-      image: require('../../assets/images/products/iphone13.png'),
-      title: "iPhone 14 Pro - 128GB - Deep Purple",
-      description: "Sealed in box, never opened, full warranty",
-      currentBid: 135000,
-      buyNowPrice: 150000,
-      timeLeft: "4h 15m",
-      bids: 28,
-      condition: "New",
-      type: "Ending Soon"
-    }
-  ];
-
-  const newlyListedProducts: Product[] = [
-    {
-      image: require('../../assets/images/products/apple-watch.png'),
-      title: "Apple Watch Ultra - Titanium Case",
-      description: "49mm case, cellular, includes Alpine Loop band",
-      currentBid: 85000,
-      buyNowPrice: 95000,
-      timeLeft: "6d 23h",
-      bids: 3,
-      condition: "New",
-      type: "Newly Listed"
-    },
-    {
-      image: require('../../assets/images/products/macbook.png'),
-      title: "MacBook Pro 14-inch M2 Max",
-      description: "32-core GPU, 32GB RAM, 1TB SSD, Space Gray",
-      currentBid: 255000,
-      buyNowPrice: 285000,
-      timeLeft: "6d 22h",
-      bids: 5,
-      condition: "New",
-      type: "Newly Listed"
-    }
-  ];
-
-  const popularProducts: Product[] = [
-    {
-      image: require('../../assets/images/products/iphone13.png'),
-      title: "iPhone 13 Mini - 256GB - Starlight",
-      description: "Perfect condition, includes original box and accessories",
-      currentBid: 75000,
-      buyNowPrice: 85000,
-      timeLeft: "3d 12h",
-      bids: 45,
-      condition: "Used",
-      type: "Popular"
-    },
-    {
-      image: require('../../assets/images/products/apple-watch.png'),
-      title: "Apple Watch Series 8 - Stainless Steel",
-      description: "45mm case, cellular, graphite color with Milanese loop",
-      currentBid: 55000,
-      buyNowPrice: 65000,
-      timeLeft: "4d 8h",
-      bids: 38,
-      condition: "Used",
-      type: "Popular"
-    }
-  ];
-
-  const getProductsByFilter = () => {
-    const products = {
-      'Featured': featuredProducts,
-      'Ending Soon': endingSoonProducts,
-      'Newly Listed': newlyListedProducts,
-      'Popular': popularProducts
-    };
-    return products[activeFilter];
+  const toCard = (p: Product, type: ProductType): UICard => {
+    const imgUrl = Array.isArray(p.images) && p.images.length ? p.images[0] : (p.productImage || undefined);
+    const image: ImageSourcePropType = imgUrl ? { uri: imgUrl as any } : require('../../assets/images/products/iphone.png');
+    const title = p.title || 'Untitled';
+    const description = p.description || '';
+    const currentBid = Number(p.currentBid ?? p.price ?? 0);
+    const bids = Number(p.bidCount ?? 0);
+    const timeLeft = (() => {
+      const end = p.auctionEndTime as any;
+      const toDate = end?.toDate ? end.toDate() : (end instanceof Date ? end : end ? new Date(end) : null);
+      if (toDate && toDate instanceof Date && !isNaN(toDate.getTime())) {
+        const diff = toDate.getTime() - Date.now();
+        if (diff <= 0) return 'Ended';
+        const d = Math.floor(diff / (1000 * 60 * 60 * 24));
+        const h = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        return d > 0 ? `${d}d ${h}h` : `${h}h`;
+      }
+      return '—';
+    })();
+    return { id: p.id || '', image, title, description, currentBid, bids, timeLeft, type };
   };
+
+  const load = React.useCallback(async (filter: ProductType) => {
+    if (filter === 'Featured') {
+      const list = await getFeaturedProducts(10);
+      setCards(list.map((p) => toCard(p, 'Featured')));
+    } else if (filter === 'Ending Soon') {
+      const list = await getEndingSoonProducts(10);
+      setCards(list.map((p) => toCard(p, 'Ending Soon')));
+    } else if (filter === 'Newly Listed') {
+      const list = await getNewlyListedProducts(10);
+      setCards(list.map((p) => toCard(p, 'Newly Listed')));
+    } else {
+      const list = await getPopularProducts(10);
+      setCards(list.map((p) => toCard(p, 'Popular')));
+    }
+  }, []);
+
+  useEffect(() => {
+    load(activeFilter).catch(() => setCards([]));
+  }, [activeFilter, load]);
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
         <ThemedText style={styles.title}>{activeFilter} Auctions</ThemedText>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.viewAllButton}
-          onPress={() => router.push('/all-categories')}
+          onPress={() => router.push({ pathname: '/(tabs)/all-products', params: { filter: activeFilter } })}
         >
           <Text style={styles.viewAllText}>View All</Text>
-          <Image 
+          <Image
             source={require('../../assets/images/icons/more.png')}
             style={styles.arrowIcon}
           />
         </TouchableOpacity>
       </View>
 
-      <ScrollView 
-        horizontal 
+      <ScrollView
+        horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.filterContainer}
       >
         {filterTabs.map((tab) => (
-          <TouchableOpacity 
+          <TouchableOpacity
             key={tab.id}
             style={[
-              styles.filterTab, 
+              styles.filterTab,
               activeFilter === tab.label && [styles.activeFilterTab, { backgroundColor: tab.color }]
             ]}
             onPress={() => setActiveFilter(tab.label)}
           >
-            <Image 
+            <Image
               source={tab.icon}
               style={[
                 styles.filterIcon,
                 activeFilter === tab.label && styles.activeFilterIcon
               ]}
             />
-            <Text 
+            <Text
               style={[
-                styles.filterText, 
+                styles.filterText,
                 activeFilter === tab.label && styles.activeFilterText
               ]}
             >
@@ -220,28 +143,34 @@ export function FeaturedAuctions() {
         ))}
       </ScrollView>
 
-      <ScrollView 
-        horizontal 
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.productsContainer}
-        pagingEnabled
-        snapToInterval={CARD_WIDTH + 16} // Card width + gap
-        decelerationRate="fast"
-      >
-        {getProductsByFilter().map((product, index) => (
-          <View key={index} style={styles.cardContainer}>
-            <ProductCard 
-              image={product.image}
-              title={product.title}
-              description={product.description}
-              currentBid={product.currentBid}
-              timeLeft={product.timeLeft}
-              bids={product.bids}
-              type={product.type}
-            />
-          </View>
-        ))}
-      </ScrollView>
+      {cards.length === 0 ? (
+        <View style={styles.emptyState}>
+          <Image source={require('../../assets/images/icons/box.png')} style={styles.emptyIcon} />
+          <Text style={styles.emptyText}>No products found</Text>
+        </View>
+      ) : (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.productsContainer}
+          pagingEnabled
+          snapToInterval={CARD_WIDTH + 16}
+          decelerationRate="fast"
+        >
+          {cards.map((product, index) => (
+            <View key={index} style={styles.cardContainer}>
+              <ProductCard
+                image={product.image}
+                title={product.title}
+                description={product.description}
+                currentBid={product.currentBid}
+                timeLeft={product.timeLeft}
+                bids={product.bids}
+                type={product.type} id={product.id} />
+            </View>
+          ))}
+        </ScrollView>
+      )}
     </View>
   );
 }
@@ -318,4 +247,19 @@ const styles = StyleSheet.create({
   activeFilterTab: {
     backgroundColor: '#16A34A',
   },
-}); 
+  emptyState: {
+    paddingHorizontal: 16,
+    paddingVertical: 32,
+    alignItems: 'center',
+  },
+  emptyIcon: {
+    width: 48,
+    height: 48,
+    tintColor: '#9CA3AF',
+    marginBottom: 8,
+  },
+  emptyText: {
+    fontSize: 14,
+    color: '#6B7280',
+  },
+});

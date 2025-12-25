@@ -5,19 +5,24 @@ import { ThemedText } from './ThemedText';
 interface Props {
   itemName: string;
   amount: number;
-  time: string;
+  time?: string;
+  ranking?: number;
+  totalBids?: number;
   isHighestBid?: boolean;
   image: ImageSourcePropType;
+  onPress?: () => void;
 }
 
-export const BidHistoryItem = ({ itemName, amount, time, isHighestBid, image }: Props) => {
+export const BidHistoryItem = ({ itemName, amount, time, ranking, totalBids, isHighestBid, image, onPress }: Props) => {
+  const displayText = ranking && totalBids ? `#${ranking} of ${totalBids}` : time;
+  
   return (
-    <View style={styles.container}>
+    <TouchableOpacity style={styles.container} onPress={onPress} activeOpacity={0.7}>
       <View style={styles.userInfo}>
         <Image source={image} style={styles.avatar} />
         <View>
           <ThemedText style={styles.name}>{itemName}</ThemedText>
-          <ThemedText style={styles.time}>{time}</ThemedText>
+          <ThemedText style={styles.time}>{displayText}</ThemedText>
         </View>
       </View>
       <View>
@@ -36,7 +41,7 @@ export const BidHistoryItem = ({ itemName, amount, time, isHighestBid, image }: 
           style={styles.moreIcon}
         />
       </TouchableOpacity>
-    </View>
+    </TouchableOpacity>
   );
 };
 
@@ -102,4 +107,4 @@ const styles = StyleSheet.create({
     width: 16,
     height: 16,
   },
-}); 
+});

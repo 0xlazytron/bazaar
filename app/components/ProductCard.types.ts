@@ -3,6 +3,7 @@ import { ImageSourcePropType } from 'react-native';
 export type ProductType = 'Featured' | 'Ending Soon' | 'Newly Listed' | 'Popular';
 
 export interface ProductCardProps {
+  id: string;
   image: ImageSourcePropType;
   title: string;
   description: string;
@@ -12,4 +13,4 @@ export interface ProductCardProps {
   type?: ProductType;
 }
 
-export type ProductCondition = 'New' | 'Used'; 
+export type ProductCondition = 'New' | 'Used';

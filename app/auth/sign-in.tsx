@@ -1,16 +1,76 @@
 import { Link, router } from 'expo-router';
 import { useState } from 'react';
-import { Image, Keyboard, StyleSheet, TextInput, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
+import { Alert, Image, Keyboard, StyleSheet, TextInput, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
 import { ThemedText } from '../../components/ThemedText';
+import { ErrorMessage } from '../../components/ErrorMessage';
+import { LoadingSpinner } from '../../components/LoadingSpinner';
+import { signInWithEmail, signInWithGoogle, isGoogleSignInAvailable } from '../../lib/auth';
+import { validateSignInForm, ValidationError } from '../../lib/validation';
 
 export default function SignIn() {
+    const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
+    const [loading, setLoading] = useState(false);
+    const [errors, setErrors] = useState<{ [key: string]: ValidationError }>({});
 
-    const handleSignIn = () => {
-        // Add your sign-in logic here
-        // For now, we'll just navigate to the home screen
-        router.replace('/(tabs)');
+    const handleSignIn = async () => {
+        // Clear previous errors
+        setErrors({});
+        
+        // Validate form
+        const validation = validateSignInForm(email, password);
+        if (!validation.isValid) {
+            const errorMap: { [key: string]: ValidationError } = {};
+            validation.errors.forEach(error => {
+                errorMap[error.field] = error;
+            });
+            setErrors(errorMap);
+            return;
+        }
+
+        setLoading(true);
+        try {
+            await signInWithEmail(email, password);
+            router.replace('/(tabs)');
+        } catch (error: any) {
+            Alert.alert('Sign In Failed', error.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleGoogleSignIn = async () => {
+        setLoading(true);
+        try {
+            // Check if Google Sign-In is available
+            const isAvailable = await isGoogleSignInAvailable();
+            if (!isAvailable) {
+                Alert.alert(
+                    'Google Sign-In Unavailable',
+                    'Google Sign-In is not available on this device. Please use email sign-in or update Google Play Services.'
+                );
+                return;
+            }
+            
+            await signInWithGoogle();
+            router.replace('/(tabs)');
+        } catch (error: any) {
+            let errorMessage = error.message;
+            
+            // Provide user-friendly error messages
+            if (errorMessage.includes('cancelled')) {
+                return; // Don't show error for cancelled sign-in
+            } else if (errorMessage.includes('Play Services')) {
+                errorMessage = 'Please update Google Play Services and try again.';
+            } else if (errorMessage.includes('not implemented')) {
+                errorMessage = 'Google Sign-In is not available on this device. Please use email sign-in.';
+            }
+            
+            Alert.alert('Google Sign In Failed', errorMessage);
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
@@ -27,11 +87,14 @@ export default function SignIn() {
                     <ThemedText style={styles.label}>Email</ThemedText>
                     <TextInput
                         placeholder="your@email.com"
-                        style={styles.input}
+                        style={[styles.input, errors.email && styles.inputError]}
                         keyboardType="email-address"
                         autoCapitalize="none"
                         placeholderTextColor="#A0A0A0"
+                        value={email}
+                        onChangeText={setEmail}
                     />
+                    <ErrorMessage error={errors.email} />
                 </View>
 
                 <View style={styles.inputContainer}>
@@ -39,7 +102,7 @@ export default function SignIn() {
                     <View style={styles.passwordContainer}>
                         <TextInput
                             placeholder="••••••••"
-                            style={[styles.input, styles.passwordInput]}
+                            style={[styles.input, styles.passwordInput, errors.password && styles.inputError]}
                             secureTextEntry={!showPassword}
                             value={password}
                             onChangeText={setPassword}
@@ -49,17 +112,31 @@ export default function SignIn() {
                             style={styles.eyeIcon}
                             onPress={() => setShowPassword(!showPassword)}
                         >
-                            <ThemedText>{showPassword ? '👁️' : '👁️'}</ThemedText>
+                            <ThemedText>{showPassword ? '👁️‍🗨️' : '👁️'}</ThemedText>
                         </TouchableOpacity>
                     </View>
+                    <ErrorMessage error={errors.password} />
                 </View>
 
-                <TouchableOpacity style={styles.forgotPasswordContainer}>
-                    <ThemedText style={styles.forgotPassword}>Forgot password?</ThemedText>
-                </TouchableOpacity>
+                <Link href="/auth/forgot-password" asChild>
+                    <TouchableOpacity style={styles.forgotPasswordContainer}>
+                        <ThemedText style={styles.forgotPassword}>Forgot password?</ThemedText>
+                    </TouchableOpacity>
+                </Link>
 
-                <TouchableOpacity style={styles.signInButton} onPress={handleSignIn}>
-                    <ThemedText style={styles.signInButtonText}>Sign in</ThemedText>
+                <TouchableOpacity 
+                    style={[styles.signInButton, loading && styles.disabledButton]} 
+                    onPress={handleSignIn}
+                    disabled={loading}
+                >
+                    {loading ? (
+                        <View style={styles.loadingContainer}>
+                            <LoadingSpinner size={20} color="#FFFFFF" />
+                            <ThemedText style={[styles.signInButtonText, styles.loadingText]}>Signing in...</ThemedText>
+                        </View>
+                    ) : (
+                        <ThemedText style={styles.signInButtonText}>Sign in</ThemedText>
+                    )}
                 </TouchableOpacity>
 
                 <View style={styles.orContainer}>
@@ -68,12 +145,18 @@ export default function SignIn() {
                     <View style={styles.orLine} />
                 </View>
 
-                <TouchableOpacity style={styles.googleButton}>
+                <TouchableOpacity 
+                    style={[styles.googleButton, loading && styles.disabledButton]} 
+                    onPress={handleGoogleSignIn}
+                    disabled={loading}
+                >
                     <Image
                         source={require('../../assets/images/google.png')}
                         style={styles.googleIcon}
                     />
-                    <ThemedText style={styles.googleButtonText}>Continue with Google</ThemedText>
+                    <ThemedText style={styles.googleButtonText}>
+                        {loading ? 'Signing in...' : 'Continue with Google'}
+                    </ThemedText>
                 </TouchableOpacity>
 
                 <View style={styles.signUpContainer}>
@@ -228,5 +311,20 @@ const styles = StyleSheet.create({
         fontFamily: 'Poppins-Bold',
         fontSize: 14,
         marginLeft: 4,
-    }
+    },
+    disabledButton: {
+        opacity: 0.6,
+    },
+    inputError: {
+        borderColor: '#FF4444',
+        borderWidth: 1,
+    },
+    loadingContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    loadingText: {
+        marginLeft: 8,
+    },
 });

@@ -1,7 +1,7 @@
 import { Stack } from 'expo-router';
 import React from 'react';
 import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import ThemedText from '../components/ThemedText';
+import { ThemedText } from '../components/ThemedText';
 
 export default function CartScreen() {
   return (
@@ -22,7 +22,7 @@ export default function CartScreen() {
           <View style={styles.cartItemCard}>
             <View style={styles.cartItemContent}>
               <View style={styles.productImageContainer}>
-                <Image 
+                <Image
                   source={require('../../assets/images/products/iphone.png')}
                   style={styles.productImage}
                 />
@@ -38,7 +38,7 @@ export default function CartScreen() {
                   256GB, Graphite, 1 Year Warranty
                 </Text>
                 <Text style={styles.priceText}>Rs 24,500</Text>
-                
+
                 <View style={styles.quantityContainer}>
                   <TouchableOpacity style={styles.quantityButton}>
                     <Text style={styles.quantityButtonText}>-</Text>
@@ -251,4 +251,4 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-}); 
+});

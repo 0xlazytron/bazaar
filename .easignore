@@ -1,0 +1,39 @@
+# Base ignores (mirroring .gitignore)
+node_modules/
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+.kotlin/
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+.metro-health-check*
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+.DS_Store
+*.pem
+.env*.local
+*.tsbuildinfo
+app-example
+
+# Local build outputs and caches
+android/app/build/
+android/.gradle/
+android/build/
+android/local.properties
+ios/build/
+ios/Pods/
+ios/Podfile.lock
+
+# Large debug / log / output files
+android/build_output*.txt
+*.log
+
+# Misc editor / OS clutter
+*.swp
+*.tmp

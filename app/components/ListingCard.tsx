@@ -1,8 +1,11 @@
 import React from 'react';
 import { Image, ImageSourcePropType, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { router } from 'expo-router';
+import { ImageWithLoader } from './ImageWithLoader';
 import { ThemedText } from './ThemedText';
 
 interface Props {
+  id?: string;
   image: ImageSourcePropType;
   title: string;
   currentBid: number;
@@ -11,30 +14,55 @@ interface Props {
   bidsCount: number;
   condition: 'New' | 'Used';
   isNewListing?: boolean;
+  onPress?: () => void;
+  onLongPress?: () => void;
 }
 
-export const ListingCard = ({ 
-  image, 
-  title, 
-  currentBid, 
-  buyNowPrice, 
-  timeLeft, 
-  bidsCount, 
+export const ListingCard = ({
+  id,
+  image,
+  title,
+  currentBid,
+  buyNowPrice,
+  timeLeft,
+  bidsCount,
   condition,
-  isNewListing 
+  isNewListing,
+  onPress,
+  onLongPress
 }: Props) => {
+  const handlePress = () => {
+    if (onPress) {
+      onPress();
+      return;
+    }
+    if (id) {
+      router.push(`/(tabs)/product/${id}` as any);
+    }
+  };
+
   return (
-    <TouchableOpacity style={styles.container}>
+    <TouchableOpacity
+      style={styles.container}
+      onPress={handlePress}
+      onLongPress={onLongPress}
+    >
       {/* Product Image */}
       <View style={styles.imageContainer}>
-        <Image source={image} style={styles.image} />
+        <ImageWithLoader
+          source={image}
+          style={styles.image}
+          resizeMode="cover"
+          loaderSize="small"
+          debugLabel={`Listing Card: ${title}`}
+        />
         <View style={[styles.badge, { backgroundColor: condition === 'New' ? '#DBEAFE' : '#FEF3C7' }]}>
           <ThemedText style={[styles.badgeText, { color: condition === 'New' ? '#1E40AF' : '#92400E' }]}>
             {condition}
           </ThemedText>
         </View>
         <TouchableOpacity style={styles.favoriteButton}>
-          <Image 
+          <Image
             source={require('../../assets/images/icons/heart.png')}
             style={styles.favoriteIcon}
           />
@@ -64,15 +92,15 @@ export const ListingCard = ({
 
         <View style={styles.statsContainer}>
           <View style={styles.statItem}>
-            <Image 
+            <Image
               source={require('../../assets/images/icons/clock.png')}
               style={styles.statIcon}
             />
             <ThemedText style={styles.statText}>{timeLeft}</ThemedText>
           </View>
           <View style={styles.statItem}>
-            <Image 
-              source={require('../../assets/images/icons/hammer.png')}
+            <Image
+              source={require('../../assets/images/icons/tag.png')}
               style={styles.statIcon}
             />
             <ThemedText style={styles.statText}>{bidsCount} bids</ThemedText>
@@ -90,6 +118,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: '#E2E8F0',
+    marginBottom: 16,
   },
   imageContainer: {
     width: '100%',
@@ -188,4 +217,4 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#64748B',
   },
-}); 
+});

@@ -1,138 +1,26 @@
-import { useNavigation } from '@react-navigation/native';
-import React from 'react';
-import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { router } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { getCategoriesWithSubs, getListingsCountForCategory, subscribeCategoriesWithSubs } from '../../lib/firestore';
 import { ThemedText } from './ThemedText';
 
-interface Category {
-  id: number;
-  title: string;
-  emoji: string;
-  bgColor: string;
-  listingsCount: number;
-  subcategories: string[];
-}
+type UICategory = { id: string; title: string; emoji?: string; iconUrl?: string; bgColor?: string; listingsCount?: number; subcategories: string[] };
+const pastelPalette = ['#EFF6FF', '#FEF3C7', '#FEE2E2', '#F3E8FF', '#ECFDF5', '#F0FDF4', '#FFF7ED', '#F0F9FF'];
 
-const categories: Category[] = [
-  {
-    id: 1,
-    title: 'Electronics',
-    emoji: '📱',
-    bgColor: '#EFF6FF',
-    listingsCount: 1245,
-    subcategories: [
-      'Phones & Tablets',
-      'Computers & Laptops',
-      'TV & Audio',
-      'Cameras',
-      'Accessories'
-    ]
-  },
-  {
-    id: 2,
-    title: 'Furniture',
-    emoji: '🪑',
-    bgColor: '#FEF3C7',
-    listingsCount: 853,
-    subcategories: [
-      'Sofas & Armchairs',
-      'Tables & Chairs',
-      'Beds & Mattresses',
-      'Storage & Organization',
-      'Garden Furniture'
-    ]
-  },
-  {
-    id: 3,
-    title: 'Vehicles',
-    emoji: '🚗',
-    bgColor: '#FEE2E2',
-    listingsCount: 426,
-    subcategories: [
-      'Cars',
-      'Motorcycles',
-      'Spare Parts & Accessories',
-      'Boats & Watercraft',
-      'Other Vehicles'
-    ]
-  },
-  {
-    id: 4,
-    title: 'Clothing',
-    emoji: '👕',
-    bgColor: '#F3E8FF',
-    listingsCount: 1089,
-    subcategories: [
-      'Men\'s Clothing',
-      'Women\'s Clothing',
-      'Kids\' Clothing',
-      'Bags & Accessories',
-      'Shoes'
-    ]
-  },
-  {
-    id: 5,
-    title: 'Hobbies',
-    emoji: '🎨',
-    bgColor: '#ECFDF5',
-    listingsCount: 738,
-    subcategories: [
-      'Books & Magazines',
-      'Musical Instruments',
-      'Collectibles',
-      'Sports Equipment',
-      'Toys & Games'
-    ]
-  },
-  {
-    id: 6,
-    title: 'Home & Garden',
-    emoji: '🏡',
-    bgColor: '#F0FDF4',
-    listingsCount: 574,
-    subcategories: [
-      'Appliances',
-      'Kitchenware',
-      'Home Decor',
-      'Garden & Outdoor',
-      'Tools & DIY'
-    ]
-  },
-  {
-    id: 7,
-    title: 'Property',
-    emoji: '🏢',
-    bgColor: '#FFF7ED',
-    listingsCount: 235,
-    subcategories: [
-      'For Rent',
-      'For Sale',
-      'Vacation Rentals',
-      'Commercial Property',
-      'Land'
-    ]
-  },
-  {
-    id: 8,
-    title: 'Services',
-    emoji: '🛠️',
-    bgColor: '#F0F9FF',
-    listingsCount: 329,
-    subcategories: [
-      'Trades & Construction',
-      'Household Services',
-      'Transport & Delivery',
-      'Professional Services',
-      'Events & Catering'
-    ]
-  }
-];
-
-function CategoryCard({ category }: { category: Category }) {
+function CategoryCard({ category }: { category: UICategory }) {
+  const [loading, setLoading] = React.useState<boolean>(!!category.iconUrl);
   return (
     <View style={styles.categoryCard}>
       <View style={styles.categoryHeader}>
         <View style={[styles.emojiContainer, { backgroundColor: category.bgColor }]}>
-          <Text style={styles.emoji}>{category.emoji}</Text>
+          {category.iconUrl ? (
+            <>
+              {loading && <ActivityIndicator size="small" color="#9CA3AF" />}
+              <Image source={{ uri: category.iconUrl }} style={[styles.iconImage, loading ? { position: 'absolute', opacity: 0 } : {}]} onLoadStart={() => setLoading(true)} onLoadEnd={() => setLoading(false)} />
+            </>
+          ) : (
+            <Text style={styles.emoji}>{category.emoji}</Text>
+          )}
         </View>
         <View style={styles.categoryInfo}>
           <ThemedText style={styles.categoryTitle}>{category.title}</ThemedText>
@@ -152,29 +40,64 @@ function CategoryCard({ category }: { category: Category }) {
 }
 
 export default function AllCategories() {
-  const navigation = useNavigation();
+  const [cats, setCats] = useState<UICategory[]>([]);
+
+  useEffect(() => {
+    let unsub: any;
+    (async () => {
+      const initial = await getCategoriesWithSubs();
+      const mapped = initial.map((c, idx) => ({
+        id: c.id || c.name,
+        title: c.name,
+        emoji: c.icon && !String(c.icon).startsWith('http') ? String(c.icon) : undefined,
+        iconUrl: c.icon && String(c.icon).startsWith('http') ? String(c.icon) : undefined,
+        bgColor: c.bgColor || pastelPalette[idx % pastelPalette.length],
+        listingsCount: c.listingsCount,
+        subcategories: c.subItems.map(s => s.name)
+      }));
+      // Compute listing counts if missing
+      const withCounts = await Promise.all(mapped.map(async (m) => ({
+        ...m,
+        listingsCount: m.listingsCount ?? await getListingsCountForCategory(m.title)
+      })));
+      setCats(withCounts);
+      unsub = subscribeCategoriesWithSubs((list) => {
+        const mappedLive = list.map((c, idx) => ({
+          id: c.id || c.name,
+          title: c.name,
+          emoji: c.icon && !String(c.icon).startsWith('http') ? String(c.icon) : undefined,
+          iconUrl: c.icon && String(c.icon).startsWith('http') ? String(c.icon) : undefined,
+          bgColor: c.bgColor || pastelPalette[idx % pastelPalette.length],
+          listingsCount: c.listingsCount,
+          subcategories: c.subItems.map(s => s.name)
+        }));
+        Promise.all(mappedLive.map(async (m) => ({ ...m, listingsCount: m.listingsCount ?? await getListingsCountForCategory(m.title) }))).then(setCats).catch(() => setCats(mappedLive));
+      });
+    })();
+    return () => unsub && unsub();
+  }, []);
 
   return (
     <View style={styles.container}>
-      <TouchableOpacity 
-        style={styles.backButton} 
-        onPress={() => navigation.goBack()}
+      <TouchableOpacity
+        style={styles.backButton}
+        onPress={() => router.push('/(tabs)/categories')}
       >
-        <Image 
+        <Image
           source={require('../../assets/images/icons/chevron-left.png')}
           style={styles.backIcon}
         />
-        <Text style={styles.backText}>Back to home</Text>
+        <Text style={styles.backText}>Back to Categories</Text>
       </TouchableOpacity>
 
       <ThemedText style={styles.title}>All Categories</ThemedText>
 
-      <ScrollView 
+      <ScrollView
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.categoriesContainer}>
-          {categories.map(category => (
+          {cats.map(category => (
             <CategoryCard key={category.id} category={category} />
           ))}
         </View>
@@ -244,6 +167,11 @@ const styles = StyleSheet.create({
   },
   emoji: {
     fontSize: 24,
+  },
+  iconImage: {
+    width: 28,
+    height: 28,
+    resizeMode: 'contain',
   },
   categoryInfo: {
     marginLeft: 16,

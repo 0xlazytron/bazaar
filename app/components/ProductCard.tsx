@@ -1,5 +1,7 @@
+import { router } from 'expo-router';
 import React from 'react';
 import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ImageWithLoader } from './ImageWithLoader';
 import { ProductCardProps } from './ProductCard.types';
 
 const tagColors = {
@@ -9,17 +11,21 @@ const tagColors = {
   'Popular': '#F59E0B'
 };
 
-export const ProductCard = ({ 
-  image, 
-  title, 
-  description, 
-  currentBid, 
-  timeLeft, 
+export const ProductCard = ({
+  image,
+  title,
+  description,
+  currentBid,
+  timeLeft,
   bids,
-  type 
+  type,
+  id
 }: ProductCardProps) => {
   return (
-    <TouchableOpacity style={styles.container}>
+    <TouchableOpacity
+      style={styles.container}
+      onPress={() => router.push(`/(tabs)/product/${id}`)}
+    >
       {/* Product Image */}
       <View style={styles.imageContainer}>
         {type && (
@@ -27,7 +33,7 @@ export const ProductCard = ({
             <Text style={styles.tagText}>{type}</Text>
           </View>
         )}
-        <Image source={image} style={styles.image} />
+        <ImageWithLoader source={image} style={styles.image} debugLabel="ProductCard" />
       </View>
 
       {/* Product Info */}
@@ -44,15 +50,15 @@ export const ProductCard = ({
         {/* Time & Bids */}
         <View style={styles.statsContainer}>
           <View style={styles.timeContainer}>
-            <Image 
+            <Image
               source={require('../../assets/images/icons/clock.png')}
               style={styles.icon}
             />
             <Text style={styles.timeText}>{timeLeft}</Text>
           </View>
           <View style={styles.bidsContainer}>
-            <Image 
-              source={require('../../assets/images/icons/hammer.png')}
+            <Image
+              source={require('../../assets/images/icons/tag.png')}
               style={styles.icon}
             />
             <Text style={styles.bidsText}>{bids} bids</Text>
@@ -156,4 +162,4 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#64748B',
   },
-}); 
+});

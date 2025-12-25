@@ -1,26 +1,86 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFonts } from 'expo-font';
 import { router } from 'expo-router';
 import { useEffect } from 'react';
 import { Dimensions, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { onAuthStateChange } from '../lib/auth';
+import { useToast } from './components/ToastContext';
+import Svg, { Path } from 'react-native-svg';
 
 const { width } = Dimensions.get('window');
 
+// Arrow right icon component
+const ArrowRightIcon = ({ color = "#FFFFFF" }) => (
+    <Svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+        <Path
+            d="M8 1L15 8L8 15M15 8H1"
+            stroke={color}
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+        />
+    </Svg>
+);
+
+const AUTH_SESSION_FLAG = 'bazaar_has_logged_in_before';
+
 export default function SplashScreen() {
+    console.log('SplashScreen: Component initialized');
+
     const [fontsLoaded] = useFonts({
         'Poppins-Bold': require('../assets/fonts/Poppins-Bold.ttf'),
     });
+    const { showToast } = useToast();
+
+    console.log('SplashScreen: Fonts loaded:', fontsLoaded);
 
     useEffect(() => {
-        const timer = setTimeout(() => {
-            router.replace('/auth/sign-up');
-        }, 2500);
+        if (!fontsLoaded) return;
 
-        return () => clearTimeout(timer);
-    }, []);
+        let handled = false;
+        let unsubscribe: (() => void) | undefined;
+
+        const checkAuth = async () => {
+            try {
+                const hasLoggedInBefore = await AsyncStorage.getItem(AUTH_SESSION_FLAG);
+
+                unsubscribe = onAuthStateChange((user) => {
+                    if (handled) return;
+                    handled = true;
+
+                    if (user) {
+                        if (!hasLoggedInBefore) {
+                            AsyncStorage.setItem(AUTH_SESSION_FLAG, '1').catch(() => { });
+                        }
+                        router.replace('/(tabs)');
+                    } else {
+                        if (hasLoggedInBefore) {
+                            showToast('Session expired, please sign in again', 'info');
+                        }
+                        router.replace('/auth/sign-in');
+                    }
+                });
+            } catch (error) {
+                console.error('Error checking auth session:', error);
+                router.replace('/auth/sign-in');
+            }
+        };
+
+        checkAuth().catch(() => {
+            router.replace('/auth/sign-in');
+        });
+
+        return () => {
+            if (unsubscribe) unsubscribe();
+        };
+    }, [fontsLoaded, showToast]);
 
     if (!fontsLoaded) {
+        console.log('SplashScreen: Fonts not loaded yet, returning null');
         return null;
     }
+
+    console.log('SplashScreen: Rendering splash screen');
 
     return (
         <View style={styles.container}>
@@ -34,15 +94,21 @@ export default function SplashScreen() {
                 </View>
 
                 <View style={styles.buttonContainer}>
-                    <TouchableOpacity style={styles.button}>
+                    <TouchableOpacity
+                        style={styles.button}
+                        onPress={() => router.push('/auth/sign-up')}
+                    >
                         <Text style={styles.buttonText}>Let&apos;s get started</Text>
                     </TouchableOpacity>
 
                     <View style={styles.accountContainer}>
                         <Text style={styles.accountText}>I already have an account</Text>
-                        <View style={styles.arrowCircle}>
-                            <Text style={styles.arrowText}>→</Text>
-                        </View>
+                        <TouchableOpacity
+                            style={styles.arrowCircle}
+                            onPress={() => router.push('/auth/sign-in')}
+                        >
+                            <ArrowRightIcon color="#FFFFFF" />
+                        </TouchableOpacity>
                     </View>
                 </View>
             </View>
@@ -121,9 +187,14 @@ const styles = StyleSheet.create({
         backgroundColor: '#16A34A',
         justifyContent: 'center',
         alignItems: 'center',
+        alignSelf: 'center',
     },
     arrowText: {
         color: '#FFFFFF',
         fontSize: 18,
+        justifyContent: 'center',
+        alignItems: 'center',
+        alignSelf: 'center',
+
     },
 });
