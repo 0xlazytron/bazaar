@@ -48,33 +48,38 @@ Join our community of developers creating universal apps.
 
 - [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
 - [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
-You'll need to add these images to your assets folder:
-product-1.jpg to product-4.jpg for the product thumbnails
-back-arrow.png for the back button
-heart.png for the favorite button
-share.png for the share button
-delivery.png for delivery icon
-location.png for location icon
-payment.png for payment icon
-bid.png for bid history icon
-star.png for rating icon
-seller-avatar.jpg for seller profile picture
-Let's create the product details screen:
-Now you'll need to add the following images to your project:
-In assets/images/icons/:
-back-arrow.png - A back arrow icon
-heart.png - A heart icon for favorites
-share.png - A share icon
-clock.png - A clock icon
-bid.png - A bid tag icon
-rupee.png - A rupee currency symbol
-delivery.png - A delivery truck icon
-location.png - A location pin icon
-payment.png - A payment/money icon
-bid-history.png - A history/chart icon
-arrow-up.png - An upward arrow icon
-star.png - A star rating icon
-In assets/images/products/:
-product-1.jpg to product-4.jpg - Product images of the iPhone
-seller-avatar.jpg - A profile picture for the seller
-Update the navigation to handle the product details screen:
+  You'll need to add these images to your assets folder:
+  product-1.jpg to product-4.jpg for the product thumbnails
+  back-arrow.png for the back button
+  heart.png for the favorite button
+  share.png for the share button
+  delivery.png for delivery icon
+  location.png for location icon
+  payment.png for payment icon
+  bid.png for bid history icon
+  star.png for rating icon
+  seller-avatar.jpg for seller profile picture
+  Let's create the product details screen:
+  Now you'll need to add the following images to your project:
+  In assets/images/icons/:
+  back-arrow.png - A back arrow icon
+  heart.png - A heart icon for favorites
+  share.png - A share icon
+  clock.png - A clock icon
+  bid.png - A bid tag icon
+  rupee.png - A rupee currency symbol
+  delivery.png - A delivery truck icon
+  location.png - A location pin icon
+  payment.png - A payment/money icon
+  bid-history.png - A history/chart icon
+  arrow-up.png - An upward arrow icon
+  star.png - A star rating icon
+  In assets/images/products/:
+  product-1.jpg to product-4.jpg - Product images of the iPhone
+  seller-avatar.jpg - A profile picture for the seller
+  Update the navigation to handle the product details screen:
+
+Sensitive Keystore information:
+Keystore password: 1fc0b50b2366756f2441885d75cff230
+Key alias: 36a1a53e02c1705901d07ada9f48479d
+Key password: 9ad39e85ae3d2ec0c0d2765275e55d2e
