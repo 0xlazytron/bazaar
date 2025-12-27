@@ -28,6 +28,7 @@
       },
       "edgeToEdgeEnabled": true,
       "package": "com.bazaar.mu",
+      "versionCode": 2,
       "permissions": [
         "INTERNET",
         "CAMERA",

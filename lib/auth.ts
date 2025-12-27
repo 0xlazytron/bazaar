@@ -13,9 +13,9 @@ import {
   updateProfile,
   User,
 } from 'firebase/auth';
-import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
+import { doc, getDoc, onSnapshot, setDoc } from 'firebase/firestore';
 import { Platform } from 'react-native';
-import { auth, db } from './firebase';
+import { auth, db, isFirebaseReady } from './firebase';
 
 export interface UserProfile {
   uid: string;
@@ -244,7 +244,7 @@ export const subscribeUserProfile = (uid: string, onUpdate: (profile: UserProfil
     });
   } catch (error) {
     console.error('Error subscribing user profile:', error);
-    return () => {};
+    return () => { };
   }
 };
 
@@ -295,11 +295,16 @@ export const updateUserProfile = async (uid: string, profileData: {
 
 // Listen to auth state changes
 export const onAuthStateChange = (callback: (user: User | null) => void): (() => void) => {
+  if (!isFirebaseReady()) {
+    setTimeout(() => callback(null), 0);
+    return () => { };
+  }
   return onAuthStateChanged(auth, callback);
 };
 
 // Get current user
 export const getCurrentUser = (): User | null => {
+  if (!isFirebaseReady()) return null;
   return auth.currentUser;
 };
 

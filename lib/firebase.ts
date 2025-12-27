@@ -1,5 +1,5 @@
-import { initializeApp, getApps } from 'firebase/app';
-import { getAuth, Auth } from 'firebase/auth';
+import { getApps, initializeApp } from 'firebase/app';
+import { Auth, getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 
@@ -13,27 +13,31 @@ const firebaseConfig = {
   appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
 };
 
-// Initialize Firebase
-let app;
-if (getApps().length === 0) {
-  app = initializeApp(firebaseConfig);
-} else {
-  app = getApps()[0];
+let app: any;
+let auth: Auth;
+let db: any;
+let storage: any;
+let firebaseInitError: Error | null = null;
+
+try {
+  if (getApps().length === 0) {
+    app = initializeApp(firebaseConfig);
+  } else {
+    app = getApps()[0];
+  }
+
+  auth = getAuth(app);
+  db = getFirestore(app);
+  storage = getStorage(app);
+} catch (error) {
+  firebaseInitError = error instanceof Error ? error : new Error(String(error));
+  app = undefined;
+  auth = {} as Auth;
+  db = {} as any;
+  storage = {} as any;
 }
 
-// Initialize Firebase Auth
-const auth: Auth = getAuth(app);
-
-// Initialize Firestore
-const db = getFirestore(app);
-
-// Initialize Storage
-const storage = getStorage(app);
-
-// Debug Firebase Storage configuration
-console.log('🔧 Firebase Storage Configuration:');
-console.log('Storage Bucket:', process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET);
-console.log('Storage App:', storage.app.options.storageBucket);
-
+export const isFirebaseReady = () => firebaseInitError === null;
+export const getFirebaseInitError = () => firebaseInitError;
 export { auth, db, storage };
 export default app;

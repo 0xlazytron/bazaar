@@ -4,7 +4,7 @@ import { User } from 'firebase/auth';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Dimensions, Image, RefreshControl, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { getUserProfile, onAuthStateChange, signOutUser, UserProfile } from '../../lib/auth';
-import { BidWithDetails, checkProductExists, getProductOrders, getProducts, getSellerReviews, getUserBidsWithDetails, getUserFavorites, getUserOrders, Order, Product, Review, testFetchProduct, updateOrder, updateProduct } from '../../lib/firestore';
+import { BidWithDetails, checkProductExists, countAllBids, countAllProducts, getProductOrders, getProducts, getSellerReviews, getUserBidsWithDetails, getUserFavorites, getUserOrders, Order, Product, Review, testFetchProduct, updateOrder, updateProduct } from '../../lib/firestore';
 import { testStorageConnectivity } from '../../lib/storage';
 import { BidHistoryItem } from '../components/BidHistoryItem';
 import { ListingCard } from '../components/ListingCard';
@@ -122,7 +122,6 @@ export default function ProfileScreen() {
       console.log('🔍 [PROFILE] Fetching bids for user:', userId);
 
       // First, let's check if there are any bids and products in the database at all
-      const { countAllBids, countAllProducts } = await import('../../lib/firestore');
       await countAllProducts();
       await countAllBids();
 

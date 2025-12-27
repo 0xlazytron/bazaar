@@ -3,9 +3,10 @@ import { useFonts } from 'expo-font';
 import { router } from 'expo-router';
 import { useEffect } from 'react';
 import { Dimensions, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { onAuthStateChange } from '../lib/auth';
-import { useToast } from './components/ToastContext';
 import Svg, { Path } from 'react-native-svg';
+import { onAuthStateChange } from '../lib/auth';
+import { getFirebaseInitError, isFirebaseReady } from '../lib/firebase';
+import { useToast } from './components/ToastContext';
 
 const { width } = Dimensions.get('window');
 
@@ -36,6 +37,7 @@ export default function SplashScreen() {
 
     useEffect(() => {
         if (!fontsLoaded) return;
+        if (!isFirebaseReady()) return;
 
         let handled = false;
         let unsubscribe: (() => void) | undefined;
@@ -78,6 +80,31 @@ export default function SplashScreen() {
     if (!fontsLoaded) {
         console.log('SplashScreen: Fonts not loaded yet, returning null');
         return null;
+    }
+
+    if (!isFirebaseReady()) {
+        const err = getFirebaseInitError();
+        return (
+            <View style={styles.container}>
+                <View style={styles.contentContainer}>
+                    <View style={styles.logoContainer}>
+                        <Image
+                            source={require('../assets/images/logo/logo.png')}
+                            style={styles.logo}
+                        />
+                        <Text style={styles.tagline}>App configuration error</Text>
+                        <Text style={styles.accountText}>
+                            Missing build-time environment variables. Rebuild the APK with Firebase env values configured.
+                        </Text>
+                        {!!err?.message && (
+                            <Text style={styles.accountText}>
+                                {err.message}
+                            </Text>
+                        )}
+                    </View>
+                </View>
+            </View>
+        );
     }
 
     console.log('SplashScreen: Rendering splash screen');

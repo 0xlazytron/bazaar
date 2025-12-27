@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { getCurrentUser } from '../../../lib/auth';
 import { getOrder, updateOrder, type Order } from '../../../lib/firestore';
+import { uploadImage } from '../../../lib/storage';
 
 const TaxProofScreen = () => {
   const { id } = useLocalSearchParams<{ id?: string }>();
@@ -62,7 +63,6 @@ const TaxProofScreen = () => {
       setUploading(true);
       const response = await fetch(asset.uri);
       const blob = await response.blob();
-      const { uploadImage } = await import('../../../lib/storage');
       const path = `taxProof/${user.uid}/${id}_${Date.now()}`;
       const url = await uploadImage(blob, path);
 

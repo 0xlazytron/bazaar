@@ -16,6 +16,7 @@ import { router } from 'expo-router';
 import { getCurrentUser, getUserProfile, updateUserProfile } from '../lib/auth';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
+import { uploadAvatarImage } from '../lib/storage';
 
 interface ValidationErrors {
   displayName?: string;
@@ -175,7 +176,6 @@ export default function EditProfile() {
           const blob = await response.blob();
           
           // Upload to Firebase Storage and get the download URL
-          const { uploadAvatarImage } = await import('../lib/storage');
           const downloadURL = await uploadAvatarImage(blob, user.uid);
           
           // Update the profile with the Firebase Storage URL
