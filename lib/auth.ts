@@ -80,6 +80,11 @@ const getGoogleAuthConfig = () => {
   };
 };
 
+const toBase64Url = (base64: string) =>
+  base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+
+const toBase64UrlFromBytes = (bytes: Uint8Array) => toBase64Url(Buffer.from(bytes).toString('base64'));
+
 // Sign in with Google
 export const signInWithGoogle = async () => {
   try {
@@ -97,12 +102,13 @@ export const signInWithGoogle = async () => {
 
       // Generate code verifier and challenge for PKCE
       const codeVerifierBytes = await Crypto.getRandomBytesAsync(32);
-      const codeVerifier = Buffer.from(codeVerifierBytes).toString('base64url');
-      const codeChallenge = await Crypto.digestStringAsync(
+      const codeVerifier = toBase64UrlFromBytes(codeVerifierBytes);
+      const codeChallengeBase64 = await Crypto.digestStringAsync(
         Crypto.CryptoDigestAlgorithm.SHA256,
         codeVerifier,
         { encoding: Crypto.CryptoEncoding.BASE64 }
       );
+      const codeChallenge = toBase64Url(codeChallengeBase64);
 
       const request = new AuthSession.AuthRequest({
         clientId: config.clientId,
