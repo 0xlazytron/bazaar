@@ -1,14 +1,14 @@
-import { router } from 'expo-router';
-import React from 'react';
-import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { ImageWithLoader } from './ImageWithLoader';
-import { ProductCardProps } from './ProductCard.types';
+import { router } from "expo-router";
+import React from "react";
+import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ImageWithLoader } from "./ImageWithLoader";
+import { ProductCardProps } from "./ProductCard.types";
 
 const tagColors = {
-  'Featured': '#16A34A',
-  'Ending Soon': '#EF4444',
-  'Newly Listed': '#6366F1',
-  'Popular': '#F59E0B'
+  Featured: "#16A34A",
+  "Ending Soon": "#EF4444",
+  "Newly Listed": "#6366F1",
+  Popular: "#F59E0B",
 };
 
 export const ProductCard = ({
@@ -16,15 +16,23 @@ export const ProductCard = ({
   title,
   description,
   currentBid,
+  buyNowPrice,
   timeLeft,
   bids,
   type,
-  id
+  id,
+  onPress,
 }: ProductCardProps) => {
+  const showBuyNow =
+    typeof buyNowPrice === "number" &&
+    !isNaN(buyNowPrice) &&
+    buyNowPrice > 0 &&
+    buyNowPrice !== currentBid;
+
   return (
     <TouchableOpacity
       style={styles.container}
-      onPress={() => router.push(`/(tabs)/product/${id}`)}
+      onPress={onPress ? onPress : () => router.push(`/(tabs)/product/${id}`)}
     >
       {/* Product Image */}
       <View style={styles.imageContainer}>
@@ -33,32 +41,52 @@ export const ProductCard = ({
             <Text style={styles.tagText}>{type}</Text>
           </View>
         )}
-        <ImageWithLoader source={image} style={styles.image} debugLabel="ProductCard" />
+        <ImageWithLoader
+          source={image}
+          style={styles.image}
+          debugLabel="ProductCard"
+        />
       </View>
 
       {/* Product Info */}
       <View style={styles.infoContainer}>
-        <Text style={styles.title} numberOfLines={2}>{title}</Text>
-        <Text style={styles.description} numberOfLines={2}>{description}</Text>
+        <Text style={styles.title} numberOfLines={2}>
+          {title}
+        </Text>
+        <Text style={styles.description} numberOfLines={2}>
+          {description}
+        </Text>
 
         {/* Current Bid */}
         <View style={styles.bidContainer}>
-          <Text style={styles.bidLabel}>Current Bid</Text>
-          <Text style={styles.bidAmount}>Rs {currentBid.toLocaleString()}</Text>
+          <View style={styles.priceRow}>
+            <Text style={styles.bidLabel}>Current Bid</Text>
+            <Text style={styles.bidAmount}>
+              Rs {currentBid.toLocaleString()}
+            </Text>
+          </View>
+          {showBuyNow && (
+            <View style={styles.priceRow}>
+              <Text style={styles.buyNowLabel}>Buy Now</Text>
+              <Text style={styles.buyNowAmount}>
+                Rs {buyNowPrice.toLocaleString()}
+              </Text>
+            </View>
+          )}
         </View>
 
         {/* Time & Bids */}
         <View style={styles.statsContainer}>
           <View style={styles.timeContainer}>
             <Image
-              source={require('../../assets/images/icons/clock.png')}
+              source={require("../../assets/images/icons/clock.png")}
               style={styles.icon}
             />
             <Text style={styles.timeText}>{timeLeft}</Text>
           </View>
           <View style={styles.bidsContainer}>
             <Image
-              source={require('../../assets/images/icons/tag.png')}
+              source={require("../../assets/images/icons/tag.png")}
               style={styles.icon}
             />
             <Text style={styles.bidsText}>{bids} bids</Text>
@@ -71,21 +99,21 @@ export const ProductCard = ({
 
 const styles = StyleSheet.create({
   container: {
-    width: '100%',
-    backgroundColor: 'white',
+    width: "100%",
+    backgroundColor: "white",
     borderRadius: 16,
-    overflow: 'hidden',
+    overflow: "hidden",
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: "#E2E8F0",
   },
   imageContainer: {
-    width: '100%',
+    width: "100%",
     height: 250,
-    backgroundColor: '#F8FAFC',
-    position: 'relative',
+    backgroundColor: "#F8FAFC",
+    position: "relative",
   },
   tagBadge: {
-    position: 'absolute',
+    position: "absolute",
     top: 12,
     left: 12,
     paddingHorizontal: 12,
@@ -94,72 +122,87 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   tagText: {
-    color: '#FFFFFF',
+    color: "#FFFFFF",
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   image: {
-    width: '100%',
-    height: '100%',
-    resizeMode: 'cover',
+    width: "100%",
+    height: "100%",
+    resizeMode: "cover",
   },
   infoContainer: {
     padding: 16,
   },
   title: {
     fontSize: 18,
-    fontWeight: '600',
-    color: '#020817',
+    fontWeight: "600",
+    color: "#020817",
     marginBottom: 4,
     lineHeight: 24,
   },
   description: {
     fontSize: 14,
-    color: '#64748B',
+    color: "#64748B",
     marginBottom: 16,
     lineHeight: 20,
   },
   bidContainer: {
     marginBottom: 16,
   },
+  priceRow: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    justifyContent: "space-between",
+  },
   bidLabel: {
     fontSize: 14,
-    color: '#64748B',
+    color: "#64748B",
     marginBottom: 4,
   },
   bidAmount: {
     fontSize: 24,
-    fontWeight: '600',
-    color: '#16A34A',
+    fontWeight: "600",
+    color: "#16A34A",
+  },
+  buyNowLabel: {
+    fontSize: 14,
+    color: "#64748B",
+    marginTop: 10,
+  },
+  buyNowAmount: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#020817",
   },
   statsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
     paddingTop: 16,
     borderTopWidth: 1,
-    borderTopColor: '#E2E8F0',
+    borderTopColor: "#E2E8F0",
   },
   timeContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 6,
   },
   bidsContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 6,
   },
   icon: {
     width: 16,
     height: 16,
-    tintColor: '#64748B',
+    tintColor: "#64748B",
   },
   timeText: {
     fontSize: 14,
-    color: '#64748B',
+    color: "#64748B",
   },
   bidsText: {
     fontSize: 14,
-    color: '#64748B',
+    color: "#64748B",
   },
 });

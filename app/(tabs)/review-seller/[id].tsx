@@ -1,41 +1,92 @@
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { getCurrentUser } from '../../../lib/auth';
-import { createReview, getOrder, getReviewForOrder, type Order, type Review, type ReviewSentiment } from '../../../lib/firestore';
+import { ThemedText } from "@/app/components/ThemedText";
+import { getCurrentUser, getUserProfile } from "@/lib/auth";
+import {
+  createReview,
+  getOrder,
+  getReviewForOrder,
+  type Order,
+  type ReviewSentiment,
+} from "@/lib/firestore";
+import { Stack, useLocalSearchParams, useRouter } from "expo-router";
+import React, { useEffect, useMemo, useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  Image,
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
-const ReviewSellerScreen = () => {
-  const { id } = useLocalSearchParams<{ id?: string }>();
+const shortId = (value?: string) => {
+  if (!value) return "";
+  if (value.length <= 10) return value;
+  return `${value.slice(0, 6)}…${value.slice(-4)}`;
+};
+
+export default function ReviewSellerScreen() {
+  const {
+    id,
+    returnTo,
+    returnActiveTab,
+    returnScrollTo,
+    highlightOrderId,
+    returnFrom,
+  } = useLocalSearchParams<{
+    id?: string;
+    returnTo?: string;
+    returnActiveTab?: string;
+    returnScrollTo?: string;
+    highlightOrderId?: string;
+    returnFrom?: string;
+  }>();
   const router = useRouter();
-  const [order, setOrder] = useState<Order | null>(null);
+
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [sentiment, setSentiment] = useState<ReviewSentiment | null>(null);
-  const [comment, setComment] = useState('');
-  const [existingReview, setExistingReview] = useState<Review | null>(null);
+  const [order, setOrder] = useState<Order | null>(null);
+  const [sellerDisplayName, setSellerDisplayName] = useState<string>("");
+  const [sentiment, setSentiment] = useState<ReviewSentiment>("positive");
+  const [comment, setComment] = useState("");
+  const [alreadyReviewed, setAlreadyReviewed] = useState(false);
+
+  const isValidId = typeof id === "string" && id.length > 0;
 
   useEffect(() => {
     let active = true;
     const load = async () => {
-      if (!id || typeof id !== 'string') {
+      if (!isValidId) {
         setLoading(false);
         return;
       }
+
       try {
-        const [orderData, reviewData] = await Promise.all([
+        setLoading(true);
+        const [orderData, existingReview] = await Promise.all([
           getOrder(id),
           getReviewForOrder(id),
         ]);
         if (!active) return;
+
         setOrder(orderData);
-        setExistingReview(reviewData);
-        if (reviewData) {
-          setSentiment(reviewData.sentiment);
-          setComment(reviewData.comment || '');
+        setAlreadyReviewed(!!existingReview);
+
+        const sellerNameFromOrder = orderData?.sellerName || "";
+        if (sellerNameFromOrder) {
+          setSellerDisplayName(sellerNameFromOrder);
+        } else if (orderData?.sellerId) {
+          const profile = await getUserProfile(orderData.sellerId);
+          if (!active) return;
+          setSellerDisplayName(
+            profile?.displayName || shortId(orderData.sellerId),
+          );
+        } else {
+          setSellerDisplayName("Seller");
         }
-      } catch (error) {
-        console.error('Error loading review data:', error);
-        Alert.alert('Error', 'Failed to load review details.');
+      } catch (e) {
+        console.error(e);
+        Alert.alert("Error", "Failed to load order.");
       } finally {
         if (active) setLoading(false);
       }
@@ -44,219 +95,273 @@ const ReviewSellerScreen = () => {
     return () => {
       active = false;
     };
-  }, [id]);
+  }, [id, isValidId]);
+
+  const canSubmit = useMemo(() => {
+    const user = getCurrentUser();
+    if (!user) return false;
+    if (!order) return false;
+    if (alreadyReviewed) return false;
+    if (order.buyerId !== user.uid) return false;
+    if (order.status !== "delivered") return false;
+    if (!comment.trim()) return false;
+    return true;
+  }, [order, alreadyReviewed, comment]);
 
   const handleSubmit = async () => {
     const user = getCurrentUser();
-    if (!user || !order || !id || typeof id !== 'string' || existingReview) {
-      return;
-    }
-    if (!sentiment) {
-      Alert.alert('Select feedback', 'Please select how your experience was.');
-      return;
-    }
+    if (!user || !order || !isValidId) return;
+
     try {
       setSubmitting(true);
-      const data: Omit<Review, 'id' | 'createdAt'> = {
+      await createReview({
         orderId: id,
         productId: order.productId,
         buyerId: user.uid,
-        buyerName: user.displayName || order.buyerName || '',
+        buyerName: user.displayName || user.email || "Buyer",
         buyerAvatar: user.photoURL || undefined,
         sellerId: order.sellerId,
         sentiment,
         comment: comment.trim(),
-      };
-      const reviewId = await createReview(data);
-      const created: Review = {
-        ...data,
-        id: reviewId,
-        createdAt: new Date(),
-      };
-      setExistingReview(created);
-      Alert.alert('Thank you', 'Your review has been submitted.', [
-        {
-          text: 'OK',
-          onPress: () => router.back(),
-        },
-      ]);
-    } catch (error) {
-      console.error('Error submitting review:', error);
-      Alert.alert('Error', 'Failed to submit review. Please try again.');
+      });
+      setAlreadyReviewed(true);
+      Alert.alert("Success", "Review submitted.");
+      if (returnTo === "profile") {
+        router.replace({
+          pathname: "/(tabs)/profile",
+          params: {
+            activeTab: returnActiveTab || "orders",
+            scrollTo: returnScrollTo || undefined,
+            highlightOrderId: highlightOrderId || (id as any) || undefined,
+          },
+        } as any);
+        return;
+      }
+      if (returnTo === "items-bought") {
+        router.replace({
+          pathname: "/(tabs)/items-bought",
+          params: { from: returnFrom || undefined },
+        } as any);
+        return;
+      }
+      if (returnTo === "items-sold") {
+        router.replace({
+          pathname: "/(tabs)/items-sold",
+          params: { from: returnFrom || undefined },
+        } as any);
+        return;
+      }
+      router.back();
+    } catch (e) {
+      console.error(e);
+      Alert.alert("Error", "Failed to submit review.");
     } finally {
       setSubmitting(false);
     }
   };
 
-  const renderContent = () => {
-    if (loading) {
-      return (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="small" color="#16A34A" />
-        </View>
-      );
-    }
-
-    if (!order) {
-      return (
-        <View style={styles.loadingContainer}>
-          <Text style={styles.errorText}>Order not found.</Text>
-        </View>
-      );
-    }
-
-    const user = getCurrentUser();
-    const isBuyer = user && order.buyerId === user.uid;
-
-    if (!isBuyer || order.status !== 'delivered') {
-      return (
-        <View style={styles.loadingContainer}>
-          <Text style={styles.errorText}>Reviews are only available for your delivered orders.</Text>
-        </View>
-      );
-    }
-
-    const disabled = !!existingReview || submitting;
-
+  if (loading) {
     return (
-      <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.card}>
-          <Text style={styles.title}>Rate Seller</Text>
-          <Text style={styles.subtitle}>
-            Order #{order.orderNumber || (order.id || '').slice(-8)}
-          </Text>
-          <Text style={styles.productTitle}>{order.productTitle}</Text>
-          <View style={styles.sellerRow}>
-            <Text style={styles.sellerLabel}>Seller</Text>
-            <Text style={styles.sellerName}>{order.sellerName || order.sellerId}</Text>
-          </View>
-
-          <Text style={styles.sectionLabel}>How was your experience?</Text>
-          <View style={styles.moodRow}>
-            <TouchableOpacity
-              style={[
-                styles.moodButton,
-                sentiment === 'positive' && styles.moodButtonSelected,
-                disabled && styles.moodButtonDisabled,
-              ]}
-              onPress={() => {
-                if (disabled) return;
-                setSentiment('positive');
-              }}
-              disabled={disabled}
-            >
-              <Image
-                source={require('@/assets/images/icons/happy.png')}
-                style={styles.moodIcon}
-              />
-              <Text style={styles.moodText}>Happy</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.moodButton,
-                sentiment === 'neutral' && styles.moodButtonSelected,
-                disabled && styles.moodButtonDisabled,
-              ]}
-              onPress={() => {
-                if (disabled) return;
-                setSentiment('neutral');
-              }}
-              disabled={disabled}
-            >
-              <Image
-                source={require('@/assets/images/icons/neutral.png')}
-                style={styles.moodIcon}
-              />
-              <Text style={styles.moodText}>Neutral</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.moodButton,
-                sentiment === 'negative' && styles.moodButtonSelected,
-                disabled && styles.moodButtonDisabled,
-              ]}
-              onPress={() => {
-                if (disabled) return;
-                setSentiment('negative');
-              }}
-              disabled={disabled}
-            >
-              <Image
-                source={require('@/assets/images/icons/sad.png')}
-                style={styles.moodIcon}
-              />
-              <Text style={styles.moodText}>Sad</Text>
-            </TouchableOpacity>
-          </View>
-
-          <Text style={styles.sectionLabel}>Write a review</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Share more about your experience"
-            value={comment}
-            onChangeText={setComment}
-            editable={!disabled}
-            multiline
-            textAlignVertical="top"
-          />
-
-          <TouchableOpacity
-            style={[
-              styles.submitButton,
-              (disabled || !sentiment) && styles.submitButtonDisabled,
-            ]}
-            onPress={handleSubmit}
-            disabled={disabled || !sentiment}
-          >
-            {submitting ? (
-              <ActivityIndicator size="small" color="#FFFFFF" />
-            ) : (
-              <Text style={styles.submitButtonText}>
-                {existingReview ? 'Review Submitted' : 'Submit Review'}
-              </Text>
-            )}
-          </TouchableOpacity>
-
-          {existingReview && (
-            <Text style={styles.infoText}>You have already reviewed this order.</Text>
-          )}
+      <View style={styles.container}>
+        <Stack.Screen options={{ headerShown: false }} />
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#16A34A" />
         </View>
-      </ScrollView>
+      </View>
     );
-  };
+  }
+
+  if (!order) {
+    return (
+      <View style={styles.container}>
+        <Stack.Screen options={{ headerShown: false }} />
+        <View style={styles.loadingContainer}>
+          <ThemedText style={styles.errorText}>Order not found.</ThemedText>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
       <Stack.Screen options={{ headerShown: false }} />
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-          <Text style={styles.backText}>Back</Text>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => {
+            if (returnTo === "profile") {
+              router.replace({
+                pathname: "/(tabs)/profile",
+                params: {
+                  activeTab: returnActiveTab || "orders",
+                  scrollTo: returnScrollTo || undefined,
+                  highlightOrderId:
+                    highlightOrderId || (id as any) || undefined,
+                },
+              } as any);
+              return;
+            }
+            if (returnTo === "order") {
+              const targetId =
+                (typeof highlightOrderId === "string" && highlightOrderId) ||
+                (typeof id === "string" ? id : "");
+              if (targetId) {
+                router.replace({
+                  pathname: "/(tabs)/order/[id]",
+                  params: { id: targetId, from: returnFrom || undefined },
+                } as any);
+                return;
+              }
+            }
+            if (returnTo === "items-bought") {
+              router.replace({
+                pathname: "/(tabs)/items-bought",
+                params: { from: returnFrom || undefined },
+              } as any);
+              return;
+            }
+            if (returnTo === "items-sold") {
+              router.replace({
+                pathname: "/(tabs)/items-sold",
+                params: { from: returnFrom || undefined },
+              } as any);
+              return;
+            }
+            router.back();
+          }}
+        >
+          <ThemedText style={styles.backText}>Back</ThemedText>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Rate Seller</Text>
+        <ThemedText style={styles.headerTitle}>Rate Seller</ThemedText>
         <View style={styles.headerSpacer} />
       </View>
-      {renderContent()}
+
+      <View style={styles.content}>
+        <View style={styles.card}>
+          <ThemedText style={styles.title}>Seller</ThemedText>
+          <ThemedText style={styles.sellerName} numberOfLines={1}>
+            {sellerDisplayName}
+          </ThemedText>
+          <ThemedText style={styles.subtitle}>
+            Order #{order.orderNumber || (order.id || "").slice(-8)}
+          </ThemedText>
+
+          <View style={styles.sentimentRow}>
+            {(
+              [
+                {
+                  key: "positive",
+                  label: "Positive",
+                  icon: require("@/assets/images/icons/happy.png"),
+                  color: "#16A34A",
+                },
+                {
+                  key: "neutral",
+                  label: "Neutral",
+                  icon: require("@/assets/images/icons/neutral.png"),
+                  color: "#F59E0B",
+                },
+                {
+                  key: "negative",
+                  label: "Negative",
+                  icon: require("@/assets/images/icons/sad.png"),
+                  color: "#EF4444",
+                },
+              ] as const
+            ).map((opt) => {
+              const selected = sentiment === opt.key;
+              return (
+                <TouchableOpacity
+                  key={opt.key}
+                  style={[
+                    styles.sentimentButton,
+                    selected && {
+                      borderColor: opt.color,
+                      backgroundColor: `${opt.color}15`,
+                    },
+                  ]}
+                  onPress={() => setSentiment(opt.key)}
+                  disabled={alreadyReviewed}
+                >
+                  <Image source={opt.icon} style={styles.sentimentIcon} />
+                  <ThemedText
+                    style={[
+                      styles.sentimentLabel,
+                      selected && { color: opt.color },
+                    ]}
+                  >
+                    {opt.label}
+                  </ThemedText>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          <ThemedText style={styles.commentLabel}>Comment</ThemedText>
+          <TextInput
+            style={styles.commentInput}
+            placeholder="Write your feedback…"
+            placeholderTextColor="#94A3B8"
+            value={comment}
+            onChangeText={setComment}
+            editable={!alreadyReviewed}
+            multiline
+          />
+
+          {alreadyReviewed && (
+            <View style={styles.infoBadge}>
+              <ThemedText style={styles.infoBadgeText}>
+                You already reviewed this order.
+              </ThemedText>
+            </View>
+          )}
+
+          <TouchableOpacity
+            style={[
+              styles.submitButton,
+              (!canSubmit || submitting) && styles.submitButtonDisabled,
+            ]}
+            onPress={handleSubmit}
+            disabled={!canSubmit || submitting}
+          >
+            {submitting ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <ThemedText style={styles.submitButtonText}>
+                Submit Review
+              </ThemedText>
+            )}
+          </TouchableOpacity>
+        </View>
+      </View>
     </View>
   );
-};
-
-export default ReviewSellerScreen;
+}
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: "#F9FAFB",
+  },
+  loadingContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  errorText: {
+    color: "#111827",
+    fontSize: 16,
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: 16,
     paddingTop: 48,
     paddingBottom: 16,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: "#E5E7EB",
   },
   backButton: {
     paddingVertical: 8,
@@ -264,12 +369,12 @@ const styles = StyleSheet.create({
   },
   backText: {
     fontSize: 14,
-    color: '#6B7280',
+    color: "#6B7280",
   },
   headerTitle: {
     fontSize: 18,
-    fontWeight: '600',
-    color: '#111827',
+    fontWeight: "600",
+    color: "#111827",
   },
   headerSpacer: {
     width: 40,
@@ -280,123 +385,103 @@ const styles = StyleSheet.create({
   },
   card: {
     borderRadius: 16,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
     padding: 16,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: "#E5E7EB",
   },
   title: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#111827',
-    marginBottom: 4,
-  },
-  subtitle: {
     fontSize: 14,
-    color: '#4B5563',
-    marginBottom: 8,
-  },
-  productTitle: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#111827',
-    marginBottom: 4,
-  },
-  sellerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  sellerLabel: {
-    fontSize: 13,
-    color: '#6B7280',
+    color: "#6B7280",
+    fontWeight: "600",
   },
   sellerName: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: '#111827',
-  },
-  sectionLabel: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#111827',
-    marginTop: 12,
-    marginBottom: 8,
-  },
-  moodRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-  },
-  moodButton: {
-    flex: 1,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    paddingVertical: 10,
-    paddingHorizontal: 8,
-    marginHorizontal: 4,
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-  },
-  moodButtonSelected: {
-    borderColor: '#16A34A',
-    backgroundColor: '#ECFDF5',
-  },
-  moodButtonDisabled: {
-    opacity: 0.6,
-  },
-  moodIcon: {
-    width: 32,
-    height: 32,
-    marginBottom: 4,
-  },
-  moodText: {
-    fontSize: 13,
-    color: '#111827',
-  },
-  input: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#111827",
     marginTop: 4,
-    minHeight: 100,
+  },
+  subtitle: {
+    marginTop: 6,
+    fontSize: 13,
+    color: "#64748B",
+  },
+  sentimentRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+    marginTop: 16,
+  },
+  sentimentButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    borderColor: "#E2E8F0",
+    backgroundColor: "#F8FAFC",
+    flexGrow: 1,
+    flexShrink: 1,
+    flexBasis: "30%",
+    justifyContent: "center",
+  },
+  sentimentIcon: {
+    width: 18,
+    height: 18,
+    resizeMode: "contain",
+  },
+  sentimentLabel: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#111827",
+  },
+  commentLabel: {
+    marginTop: 18,
     fontSize: 14,
-    color: '#111827',
-    backgroundColor: '#FFFFFF',
+    fontWeight: "600",
+    color: "#111827",
+  },
+  commentInput: {
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    borderRadius: 12,
+    padding: 12,
+    minHeight: 110,
+    backgroundColor: "#FFFFFF",
+    color: "#0F172A",
+    textAlignVertical: "top",
+  },
+  infoBadge: {
+    marginTop: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    backgroundColor: "#FEF3C7",
+    borderWidth: 1,
+    borderColor: "#FDE68A",
+  },
+  infoBadgeText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#92400E",
   },
   submitButton: {
     marginTop: 16,
-    borderRadius: 999,
-    backgroundColor: '#16A34A',
+    backgroundColor: "#16A34A",
+    borderRadius: 12,
     paddingVertical: 12,
-    alignItems: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   submitButtonDisabled: {
-    opacity: 0.7,
+    opacity: 0.55,
   },
   submitButtonText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
-  infoText: {
-    marginTop: 8,
-    fontSize: 13,
-    color: '#6B7280',
-    textAlign: 'center',
-  },
-  loadingContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  errorText: {
+    color: "#FFFFFF",
+    fontWeight: "700",
     fontSize: 14,
-    color: '#EF4444',
   },
 });
-

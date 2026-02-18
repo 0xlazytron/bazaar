@@ -1,19 +1,20 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  View,
-  Text,
-  TouchableOpacity,
-  FlatList,
-  StyleSheet,
   ActivityIndicator,
   Alert,
+  FlatList,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { getCurrentUser, onAuthStateChange } from '../../lib/auth';
+import { getProduct, getUserFavorites, Product, removeFromFavorites, subscribeUserFavorites } from '../../lib/firestore';
+import { ImageWithLoader } from '../components/ImageWithLoader';
 import { ThemedText } from '../components/ThemedText';
 import { TopHeader } from '../components/TopHeader';
-import { ImageWithLoader } from '../components/ImageWithLoader';
-import { getUserFavorites, getProduct, removeFromFavorites, Product } from '../../lib/firestore';
-import { getCurrentUser, onAuthStateChange } from '../../lib/auth';
 
 const filterTabs = [
   {
@@ -39,11 +40,15 @@ const filterTabs = [
 ];
 
 export function FavoritesScreen() {
+  const router = useRouter();
+  const params = useLocalSearchParams<{ from?: string }>();
+  const from = typeof params.from === 'string' ? params.from : '';
   const [selectedFilter, setSelectedFilter] = useState('All');
   const [favoriteProducts, setFavoriteProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [currentUser, setCurrentUser] = useState(getCurrentUser());
+  const latestLoadRef = useRef(0);
 
   // Load favorites from Firebase
   const loadFavorites = useCallback(async () => {
@@ -55,15 +60,15 @@ export function FavoritesScreen() {
     try {
       const favoriteIds = await getUserFavorites(currentUser.uid);
       const products: Product[] = [];
-      
+
       // Fetch product details for each favorite
       for (const productId of favoriteIds) {
         const product = await getProduct(productId);
-        if (product && product.status === 'active') {
+        if (product) {
           products.push(product);
         }
       }
-      
+
       setFavoriteProducts(products);
     } catch (error) {
       console.error('Error loading favorites:', error);
@@ -95,65 +100,72 @@ export function FavoritesScreen() {
 
   // Filter products based on selected filter
   const getFilteredProducts = () => {
+    const toDate = (value: any): Date | null => {
+      const d =
+        value?.toDate && typeof value.toDate === 'function'
+          ? value.toDate()
+          : value instanceof Date
+            ? value
+            : value
+              ? new Date(value)
+              : null;
+      return d instanceof Date && !isNaN(d.getTime()) ? d : null;
+    };
+
+    const baseProducts =
+      selectedFilter === 'All'
+        ? favoriteProducts
+        : favoriteProducts.filter((p) => p.status === 'active');
+
     if (selectedFilter === 'All') {
-      return favoriteProducts;
+      return baseProducts;
     }
-    
+
     const now = new Date();
-    
+
     switch (selectedFilter) {
       case 'Ending Soon':
-        return favoriteProducts.filter(product => {
-          if (!product.auctionEndTime) return false;
-          const endTime = product.auctionEndTime instanceof Date 
-            ? product.auctionEndTime 
-            : new Date(product.auctionEndTime);
+        return baseProducts.filter(product => {
+          const endTime = toDate(product.auctionEndTime);
+          if (!endTime) return false;
           const hoursLeft = (endTime.getTime() - now.getTime()) / (1000 * 60 * 60);
           return hoursLeft > 0 && hoursLeft <= 24;
         });
-      
+
       case 'Newly Listed':
-        return favoriteProducts.filter(product => {
-          if (!product.createdAt) return false;
-          try {
-            const createdAt = product.createdAt instanceof Date 
-              ? product.createdAt 
-              : new Date(product.createdAt);
-            if (isNaN(createdAt.getTime())) return false;
-            const daysOld = (now.getTime() - createdAt.getTime()) / (1000 * 60 * 60 * 24);
-            return daysOld <= 7;
-          } catch (error) {
-            console.warn('Invalid createdAt date for product:', product.id, error);
-            return false;
-          }
+        return baseProducts.filter(product => {
+          const createdAt = toDate(product.createdAt);
+          if (!createdAt) return false;
+          const daysOld = (now.getTime() - createdAt.getTime()) / (1000 * 60 * 60 * 24);
+          return daysOld <= 7;
         });
-      
+
       case 'Popular':
-        return [...favoriteProducts].sort((a, b) => (b.likes || 0) - (a.likes || 0));
-      
+        return [...baseProducts].sort((a, b) => (b.likes || 0) - (a.likes || 0));
+
       default:
-        return favoriteProducts;
+        return baseProducts;
     }
   };
 
   // Calculate time remaining for auctions
   const getTimeRemaining = (auctionEndTime?: any) => {
     if (!auctionEndTime) return null;
-    
+
     const endTime = (auctionEndTime as any)?.toDate
       ? (auctionEndTime as any).toDate()
-      : auctionEndTime instanceof Date 
-        ? auctionEndTime 
+      : auctionEndTime instanceof Date
+        ? auctionEndTime
         : new Date(auctionEndTime as any);
     if (!(endTime instanceof Date) || isNaN(endTime.getTime())) return null;
     const now = new Date();
     const diff = endTime.getTime() - now.getTime();
-    
+
     if (diff <= 0) return 'Ended';
-    
+
     const days = Math.floor(diff / (1000 * 60 * 60 * 24));
     const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-    
+
     if (days > 0) {
       return `${days}d ${hours}h`;
     } else {
@@ -171,8 +183,36 @@ export function FavoritesScreen() {
   }, []);
 
   useEffect(() => {
-    loadFavorites();
-  }, [loadFavorites]);
+    if (!currentUser) {
+      setFavoriteProducts([]);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    const unsubscribe = subscribeUserFavorites(currentUser.uid, (ids) => {
+      const loadId = ++latestLoadRef.current;
+      Promise.all(ids.map((productId) => getProduct(productId)))
+        .then((products) => {
+          if (loadId !== latestLoadRef.current) return;
+          setFavoriteProducts(products.filter(Boolean) as Product[]);
+        })
+        .catch((error) => {
+          if (loadId !== latestLoadRef.current) return;
+          console.error('Error loading favorites:', error);
+          setFavoriteProducts([]);
+        })
+        .finally(() => {
+          if (loadId !== latestLoadRef.current) return;
+          setLoading(false);
+          setRefreshing(false);
+        });
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [currentUser]);
 
   const filteredProducts = getFilteredProducts();
 
@@ -183,7 +223,20 @@ export function FavoritesScreen() {
 
       {/* Favorites Header */}
       <View style={styles.header}>
-        <ThemedText type="heading" style={styles.headerTitle}>Favorites</ThemedText>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() =>
+            from === 'profile'
+              ? router.replace('/(tabs)/profile')
+              : router.back()
+          }
+        >
+          <ThemedText style={styles.backText}>Back</ThemedText>
+        </TouchableOpacity>
+        <ThemedText type="heading" style={styles.headerTitle}>
+          Favorites
+        </ThemedText>
+        <View style={styles.headerSpacer} />
       </View>
 
       {/* Filter Options - Vertical Layout */}
@@ -236,8 +289,8 @@ export function FavoritesScreen() {
             const isNewListing = (() => {
               if (!item.createdAt) return false;
               try {
-                const createdAt = item.createdAt instanceof Date 
-                  ? item.createdAt 
+                const createdAt = item.createdAt instanceof Date
+                  ? item.createdAt
                   : new Date(item.createdAt);
                 if (isNaN(createdAt.getTime())) return false;
                 const daysOld = (new Date().getTime() - createdAt.getTime()) / (1000 * 60 * 60 * 24);
@@ -251,25 +304,25 @@ export function FavoritesScreen() {
             return (
               <View style={styles.favoriteItemCard}>
                 {/* Product Image */}
-                 <View style={styles.productImageContainer}>
-                    <ImageWithLoader 
-                      source={item.images && item.images.length > 0 ? { uri: item.images[0] } : require('@/assets/images/products/product-1.png')} 
-                      style={styles.productImage}
-                      resizeMode="cover"
-                      debugLabel={`FavoriteProduct-${item.id}`}
-                    />
-                    {isNewListing && (
-                      <View style={styles.newListingBadge}>
-                        <Text style={styles.newListingText}>New Listing</Text>
-                      </View>
-                    )}
-                    <TouchableOpacity 
-                      style={styles.favoriteButton}
-                      onPress={() => handleUnfavorite(item.id || '')}
-                    >
-                      <Ionicons name="heart" size={20} color="#EF4444" />
-                    </TouchableOpacity>
-                  </View>
+                <View style={styles.productImageContainer}>
+                  <ImageWithLoader
+                    source={item.images && item.images.length > 0 ? { uri: item.images[0] } : require('@/assets/images/products/product-1.png')}
+                    style={styles.productImage}
+                    resizeMode="cover"
+                    debugLabel={`FavoriteProduct-${item.id}`}
+                  />
+                  {isNewListing && (
+                    <View style={styles.newListingBadge}>
+                      <Text style={styles.newListingText}>New Listing</Text>
+                    </View>
+                  )}
+                  <TouchableOpacity
+                    style={styles.favoriteButton}
+                    onPress={() => handleUnfavorite(item.id || '')}
+                  >
+                    <Ionicons name="heart" size={20} color="#EF4444" />
+                  </TouchableOpacity>
+                </View>
 
                 {/* Product Details */}
                 <View style={styles.itemDetails}>
@@ -287,11 +340,11 @@ export function FavoritesScreen() {
                       </Text>
                     </View>
                     <View style={[
-                      styles.conditionBadge, 
+                      styles.conditionBadge,
                       item.itemCondition === 'new' ? styles.newBadge : styles.usedBadge
                     ]}>
                       <Text style={[
-                        styles.conditionText, 
+                        styles.conditionText,
                         item.itemCondition === 'new' ? styles.newText : styles.usedText
                       ]}>
                         {item.itemCondition || item.condition || 'Used'}
@@ -333,13 +386,13 @@ export function FavoritesScreen() {
             {selectedFilter === 'All' ? 'No favorites yet' : `No ${selectedFilter.toLowerCase()} favorites`}
           </ThemedText>
           <Text style={styles.emptySubText}>
-            {selectedFilter === 'All' 
+            {selectedFilter === 'All'
               ? 'Items added to your favorites will appear here'
               : `No favorites match the ${selectedFilter.toLowerCase()} filter`
             }
           </Text>
           {selectedFilter !== 'All' && (
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.browseButton}
               onPress={() => setSelectedFilter('All')}
             >
@@ -358,16 +411,30 @@ const styles = StyleSheet.create({
     backgroundColor: '#F9FAFB',
   },
   header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 12,
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
     borderBottomColor: '#E5E7EB',
   },
+  backButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+  },
+  backText: {
+    fontSize: 14,
+    color: '#6B7280',
+  },
   headerTitle: {
     fontSize: 24,
     fontWeight: '600',
     color: '#111827',
+  },
+  headerSpacer: {
+    width: 40,
   },
   filterContainer: {
     backgroundColor: '#FFFFFF',

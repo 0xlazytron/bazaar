@@ -1,13 +1,14 @@
 import { ThemedText } from '@/components/ThemedText';
 import { usePathname, useRouter } from 'expo-router';
-import React, { useEffect } from 'react';
-import { StyleSheet, TouchableOpacity, View } from 'react-native';
 import { collection, onSnapshot, query, where } from 'firebase/firestore';
+import React, { useEffect } from 'react';
+import { Platform, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Svg, { Path } from 'react-native-svg';
 import { getCurrentUser, subscribeUserProfile } from '../../lib/auth';
 import { db } from '../../lib/firebase';
-import { registerNotificationsAsync, notifyIncomingCall, registerAndStorePushTokenAsync, notifyMessageWithImage, notifyProductWithImage } from '../../lib/notifications';
 import { subscribeUnreadTotal } from '../../lib/firestore';
-import Svg, { Path } from 'react-native-svg';
+import { notifyIncomingCall, notifyMessageWithImage, notifyProductWithImage, registerAndStorePushTokenAsync, registerNotificationsAsync } from '../../lib/notifications';
 
 // SVG icon components
 const HomeIcon = ({ color = "#6B7280" }) => (
@@ -96,6 +97,7 @@ export default function BottomNavigation() {
   const router = useRouter();
   const pathname = usePathname();
   const [unreadTotal, setUnreadTotal] = React.useState<number>(0);
+  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     const user = getCurrentUser();
@@ -201,8 +203,18 @@ export default function BottomNavigation() {
     return basePath === tabName;
   };
 
+  const extraBottom = Platform.OS === 'ios' ? Math.max(insets.bottom - 8, 0) : 0;
+
   return (
-    <View style={styles.container}>
+    <View
+      style={[
+        styles.container,
+        {
+          paddingBottom: extraBottom,
+          height: 72 + extraBottom,
+        },
+      ]}
+    >
       {tabs.map((tab) => {
         const isActive = isTabActive(tab.path);
         const isSell = tab.name === 'Sell';
@@ -211,7 +223,13 @@ export default function BottomNavigation() {
           <TouchableOpacity
             key={tab.name}
             style={styles.tab}
-            onPress={() => router.push(tab.path as any)}
+            onPress={() => {
+              if (tab.name === 'Sell') {
+                router.push({ pathname: tab.path as any, params: { newListingKey: Date.now().toString() } } as any);
+                return;
+              }
+              router.push(tab.path as any);
+            }}
           >
             <View style={[
               styles.iconContainer,
@@ -244,24 +262,24 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     backgroundColor: '#FFFFFF',
-    paddingBottom: 2,
-    paddingTop: 1,
+    paddingBottom: 0,
+    paddingTop: 2,
     borderTopWidth: 1,
     borderTopColor: '#F3F4F6',
-    height: 85,
+    height: 72,
   },
   tab: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'flex-end',
-    paddingBottom: 4,
+    paddingBottom: 2,
   },
   iconContainer: {
     width: 24,
     height: 24,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 4,
+    marginBottom: 3,
   },
   badge: {
     position: 'absolute',
@@ -284,10 +302,10 @@ const styles = StyleSheet.create({
     height: 48,
     backgroundColor: '#16A34A',
     borderRadius: 24,
-    marginBottom: 8,
+    marginBottom: 6,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: -24,
+    marginTop: -20,
   },
   activeSellIconContainer: {
     backgroundColor: '#16A34A',

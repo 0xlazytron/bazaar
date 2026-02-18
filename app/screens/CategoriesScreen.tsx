@@ -13,7 +13,10 @@ type UICategory = { id: string; name: string; emoji?: string; iconUrl?: string }
 const CategoryCard = ({ emoji, iconUrl, name }: { emoji?: string; iconUrl?: string; name: string }) => {
   const [loading, setLoading] = React.useState<boolean>(!!iconUrl);
   return (
-    <TouchableOpacity style={styles.categoryCard}>
+    <TouchableOpacity
+      style={styles.categoryCard}
+      onPress={() => router.push({ pathname: '/(tabs)/all-products', params: { category: name } })}
+    >
       {iconUrl ? (
         <>
           {loading && <ActivityIndicator size="small" color="#9CA3AF" />}

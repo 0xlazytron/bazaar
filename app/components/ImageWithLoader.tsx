@@ -1,18 +1,27 @@
-import React, { useState } from 'react';
-import { View, Image, ActivityIndicator, StyleSheet, ImageProps, ImageSourcePropType } from 'react-native';
-import { validateStorageUrl, fixStorageUrlEncoding } from '../../lib/storage';
+import React, { useState } from "react";
+import {
+  ActivityIndicator,
+  Image,
+  ImageProps,
+  ImageSourcePropType,
+  StyleSheet,
+  View,
+} from "react-native";
+import { fixStorageUrlEncoding, validateStorageUrl } from "../../lib/storage";
 
-interface ImageWithLoaderProps extends Omit<ImageProps, 'source'> {
+interface ImageWithLoaderProps extends Omit<ImageProps, "source"> {
   source: ImageSourcePropType;
-  loaderSize?: 'small' | 'medium' | 'large';
+  fallbackSource?: ImageSourcePropType;
+  loaderSize?: "small" | "medium" | "large";
   debugLabel?: string; // Optional label for debugging
 }
 
 export const ImageWithLoader: React.FC<ImageWithLoaderProps> = ({
   source,
+  fallbackSource = require("../../assets/images/products/product-1.png"),
   style,
-  loaderSize = 'medium',
-  debugLabel = 'Image',
+  loaderSize = "medium",
+  debugLabel = "Image",
   ...props
 }) => {
   const [isLoading, setIsLoading] = useState(true);
@@ -20,17 +29,20 @@ export const ImageWithLoader: React.FC<ImageWithLoaderProps> = ({
 
   const getLoaderSize = () => {
     switch (loaderSize) {
-      case 'small': return 20;
-      case 'large': return 40;
-      default: return 30;
+      case "small":
+        return 20;
+      case "large":
+        return 40;
+      default:
+        return 30;
     }
   };
 
   const getImageUrl = () => {
-    if (typeof source === 'object' && 'uri' in source) {
+    if (typeof source === "object" && "uri" in source) {
       return source.uri;
     }
-    return 'Local image';
+    return "Local image";
   };
 
   const handleLoadStart = () => {
@@ -40,17 +52,20 @@ export const ImageWithLoader: React.FC<ImageWithLoaderProps> = ({
     console.log(`🔄 [${debugLabel}] Image loading started:`, imageUrl);
 
     // Validate Firebase Storage URLs
-    if (typeof source === 'object' && 'uri' in source && source.uri) {
+    if (typeof source === "object" && "uri" in source && source.uri) {
       const isValid = validateStorageUrl(source.uri);
       if (!isValid) {
-        console.warn(`⚠️ [${debugLabel}] Potentially invalid Firebase Storage URL:`, source.uri);
+        console.warn(
+          `⚠️ [${debugLabel}] Potentially invalid Firebase Storage URL:`,
+          source.uri,
+        );
       }
     }
   };
 
   // Get the corrected source with fixed URL encoding
   const getCorrectedSource = () => {
-    if (typeof source === 'object' && 'uri' in source && source.uri) {
+    if (typeof source === "object" && "uri" in source && source.uri) {
       const fixedUri = fixStorageUrlEncoding(source.uri);
       return { ...source, uri: fixedUri };
     }
@@ -65,7 +80,11 @@ export const ImageWithLoader: React.FC<ImageWithLoaderProps> = ({
   const handleError = (error: any) => {
     setIsLoading(false);
     setHasError(true);
-    console.warn(`❌ [${debugLabel}] Image failed to load:`, getImageUrl(), error?.nativeEvent);
+    console.warn(
+      `❌ [${debugLabel}] Image failed to load:`,
+      getImageUrl(),
+      error?.nativeEvent,
+    );
   };
 
   return (
@@ -73,7 +92,10 @@ export const ImageWithLoader: React.FC<ImageWithLoaderProps> = ({
       {!hasError ? (
         <Image
           source={getCorrectedSource()}
-          style={[StyleSheet.absoluteFillObject, { opacity: isLoading ? 0 : 1 }]}
+          style={[
+            StyleSheet.absoluteFillObject,
+            { opacity: isLoading ? 0 : 1 },
+          ]}
           onLoadStart={handleLoadStart}
           onLoadEnd={handleLoadEnd}
           onError={handleError}
@@ -81,7 +103,7 @@ export const ImageWithLoader: React.FC<ImageWithLoaderProps> = ({
         />
       ) : (
         <Image
-          source={require('../../assets/images/products/product-1.png')}
+          source={fallbackSource}
           style={StyleSheet.absoluteFillObject}
           resizeMode="cover"
         />
@@ -89,10 +111,7 @@ export const ImageWithLoader: React.FC<ImageWithLoaderProps> = ({
 
       {isLoading && (
         <View style={styles.loaderContainer}>
-          <ActivityIndicator
-            size={getLoaderSize()}
-            color="#22C55E"
-          />
+          <ActivityIndicator size={getLoaderSize()} color="#22C55E" />
         </View>
       )}
     </View>
@@ -101,19 +120,20 @@ export const ImageWithLoader: React.FC<ImageWithLoaderProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    position: 'relative',
+    position: "relative",
+    overflow: "hidden",
   },
   loaderContainer: {
-    position: 'absolute',
+    position: "absolute",
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.8)",
   },
   errorContainer: {
-    backgroundColor: '#f0f0f0',
+    backgroundColor: "#f0f0f0",
   },
 });

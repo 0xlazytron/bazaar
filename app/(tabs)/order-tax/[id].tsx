@@ -1,13 +1,36 @@
-import * as ImagePicker from 'expo-image-picker';
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { getCurrentUser } from '../../../lib/auth';
-import { getOrder, updateOrder, type Order } from '../../../lib/firestore';
-import { uploadImage } from '../../../lib/storage';
+import * as ImagePicker from "expo-image-picker";
+import { Stack, useLocalSearchParams, useRouter } from "expo-router";
+import React, { useEffect, useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  Image,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { getCurrentUser } from "../../../lib/auth";
+import { getOrder, updateOrder, type Order } from "../../../lib/firestore";
+import { uploadImage } from "../../../lib/storage";
 
 const TaxProofScreen = () => {
-  const { id } = useLocalSearchParams<{ id?: string }>();
+  const {
+    id,
+    returnTo,
+    returnActiveTab,
+    returnScrollTo,
+    highlightOrderId,
+    returnFrom,
+  } = useLocalSearchParams<{
+    id?: string;
+    returnTo?: string;
+    returnActiveTab?: string;
+    returnScrollTo?: string;
+    highlightOrderId?: string;
+    returnFrom?: string;
+  }>();
   const router = useRouter();
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
@@ -16,7 +39,7 @@ const TaxProofScreen = () => {
   useEffect(() => {
     let active = true;
     const load = async () => {
-      if (!id || typeof id !== 'string') {
+      if (!id || typeof id !== "string") {
         setLoading(false);
         return;
       }
@@ -25,8 +48,8 @@ const TaxProofScreen = () => {
         if (!active) return;
         setOrder(data);
       } catch (error) {
-        console.error('Error loading order:', error);
-        Alert.alert('Error', 'Failed to load order details.');
+        console.error("Error loading order:", error);
+        Alert.alert("Error", "Failed to load order details.");
       } finally {
         if (active) setLoading(false);
       }
@@ -39,11 +62,14 @@ const TaxProofScreen = () => {
 
   const handlePickImage = async () => {
     const user = getCurrentUser();
-    if (!user || !order || !id || typeof id !== 'string') return;
+    if (!user || !order || !id || typeof id !== "string") return;
 
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permission needed', 'Please grant access to your photos to upload tax proof.');
+    if (status !== "granted") {
+      Alert.alert(
+        "Permission needed",
+        "Please grant access to your photos to upload tax proof.",
+      );
       return;
     }
 
@@ -71,10 +97,10 @@ const TaxProofScreen = () => {
       });
 
       setOrder((prev) => (prev ? { ...prev, taxProof: url } : prev));
-      Alert.alert('Success', 'Tax proof uploaded successfully.');
+      Alert.alert("Success", "Tax proof uploaded successfully.");
     } catch (error) {
-      console.error('Error uploading tax proof:', error);
-      Alert.alert('Error', 'Failed to upload tax proof. Please try again.');
+      console.error("Error uploading tax proof:", error);
+      Alert.alert("Error", "Failed to upload tax proof. Please try again.");
     } finally {
       setUploading(false);
     }
@@ -100,10 +126,12 @@ const TaxProofScreen = () => {
     const user = getCurrentUser();
     const isSeller = user && order.sellerId === user.uid;
 
-    if (!isSeller || order.status !== 'delivered') {
+    if (!isSeller || order.status !== "delivered") {
       return (
         <View style={styles.loadingContainer}>
-          <Text style={styles.errorText}>Tax payment is only available for your sold orders.</Text>
+          <Text style={styles.errorText}>
+            Tax payment is only available for your sold orders.
+          </Text>
         </View>
       );
     }
@@ -113,10 +141,13 @@ const TaxProofScreen = () => {
         <View style={styles.card}>
           <Text style={styles.title}>Tax Proof</Text>
           <Text style={styles.subtitle}>
-            Order #{order.orderNumber || (order.id || '').slice(-8)}
+            Order #{order.orderNumber || (order.id || "").slice(-8)}
           </Text>
           <Text style={styles.amountText}>
-            Platform tax: Rs {(order.productTax ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+            Platform tax: Rs{" "}
+            {(order.productTax ?? 0).toLocaleString("en-IN", {
+              minimumFractionDigits: 2,
+            })}
           </Text>
 
           {order.taxProof ? (
@@ -125,12 +156,17 @@ const TaxProofScreen = () => {
             </View>
           ) : (
             <View style={styles.placeholder}>
-              <Text style={styles.placeholderText}>No tax proof uploaded yet.</Text>
+              <Text style={styles.placeholderText}>
+                No tax proof uploaded yet.
+              </Text>
             </View>
           )}
 
           <TouchableOpacity
-            style={[styles.uploadButton, uploading && styles.uploadButtonDisabled]}
+            style={[
+              styles.uploadButton,
+              uploading && styles.uploadButtonDisabled,
+            ]}
             onPress={handlePickImage}
             disabled={uploading}
           >
@@ -138,14 +174,16 @@ const TaxProofScreen = () => {
               <ActivityIndicator size="small" color="#FFFFFF" />
             ) : (
               <Text style={styles.uploadButtonText}>
-                {order.taxProof ? 'Replace Tax Proof' : 'Upload Tax Proof'}
+                {order.taxProof ? "Replace Tax Proof" : "Upload Tax Proof"}
               </Text>
             )}
           </TouchableOpacity>
 
           {order.taxPaid && (
             <View style={styles.statusBadge}>
-              <Text style={styles.statusBadgeText}>Tax marked as paid by admin</Text>
+              <Text style={styles.statusBadgeText}>
+                Tax marked as paid by admin
+              </Text>
             </View>
           )}
         </View>
@@ -157,7 +195,48 @@ const TaxProofScreen = () => {
     <View style={styles.container}>
       <Stack.Screen options={{ headerShown: false }} />
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => {
+            if (returnTo === "profile") {
+              router.replace({
+                pathname: "/(tabs)/profile",
+                params: {
+                  activeTab: returnActiveTab || "orders",
+                  scrollTo: returnScrollTo || undefined,
+                  highlightOrderId:
+                    highlightOrderId || (id as any) || undefined,
+                },
+              } as any);
+              return;
+            }
+            if (returnTo === "order") {
+              const targetId = typeof id === "string" ? id : "";
+              if (targetId) {
+                router.replace({
+                  pathname: "/(tabs)/order/[id]",
+                  params: { id: targetId, from: returnFrom || undefined },
+                } as any);
+                return;
+              }
+            }
+            if (returnTo === "items-sold") {
+              router.replace({
+                pathname: "/(tabs)/items-sold",
+                params: { from: returnFrom || undefined },
+              } as any);
+              return;
+            }
+            if (returnTo === "items-bought") {
+              router.replace({
+                pathname: "/(tabs)/items-bought",
+                params: { from: returnFrom || undefined },
+              } as any);
+              return;
+            }
+            router.back();
+          }}
+        >
           <Text style={styles.backText}>Back</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Tax Proof</Text>
@@ -173,18 +252,18 @@ export default TaxProofScreen;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: "#F9FAFB",
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: 16,
     paddingTop: 48,
     paddingBottom: 16,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: "#E5E7EB",
   },
   backButton: {
     paddingVertical: 8,
@@ -192,12 +271,12 @@ const styles = StyleSheet.create({
   },
   backText: {
     fontSize: 14,
-    color: '#6B7280',
+    color: "#6B7280",
   },
   headerTitle: {
     fontSize: 18,
-    fontWeight: '600',
-    color: '#111827',
+    fontWeight: "600",
+    color: "#111827",
   },
   headerSpacer: {
     width: 40,
@@ -208,88 +287,88 @@ const styles = StyleSheet.create({
   },
   card: {
     borderRadius: 16,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
     padding: 16,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: "#E5E7EB",
   },
   title: {
     fontSize: 18,
-    fontWeight: '600',
-    color: '#111827',
+    fontWeight: "600",
+    color: "#111827",
     marginBottom: 4,
   },
   subtitle: {
     fontSize: 14,
-    color: '#4B5563',
+    color: "#4B5563",
     marginBottom: 8,
   },
   amountText: {
     fontSize: 14,
-    fontWeight: '500',
-    color: '#16A34A',
+    fontWeight: "500",
+    color: "#16A34A",
     marginBottom: 16,
   },
   imageWrapper: {
     borderRadius: 12,
-    overflow: 'hidden',
+    overflow: "hidden",
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: "#E5E7EB",
     marginBottom: 16,
   },
   image: {
-    width: '100%',
+    width: "100%",
     height: 260,
-    resizeMode: 'cover',
+    resizeMode: "cover",
   },
   placeholder: {
     height: 260,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    alignItems: 'center',
-    justifyContent: 'center',
+    borderColor: "#E5E7EB",
+    alignItems: "center",
+    justifyContent: "center",
     marginBottom: 16,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: "#F9FAFB",
   },
   placeholderText: {
     fontSize: 14,
-    color: '#6B7280',
+    color: "#6B7280",
   },
   uploadButton: {
     marginTop: 4,
     borderRadius: 999,
-    backgroundColor: '#16A34A',
+    backgroundColor: "#16A34A",
     paddingVertical: 12,
-    alignItems: 'center',
+    alignItems: "center",
   },
   uploadButtonDisabled: {
     opacity: 0.7,
   },
   uploadButtonText: {
     fontSize: 15,
-    fontWeight: '600',
-    color: '#FFFFFF',
+    fontWeight: "600",
+    color: "#FFFFFF",
   },
   statusBadge: {
     marginTop: 12,
     paddingVertical: 6,
     paddingHorizontal: 10,
     borderRadius: 999,
-    backgroundColor: '#ECFDF5',
-    alignItems: 'center',
+    backgroundColor: "#ECFDF5",
+    alignItems: "center",
   },
   statusBadgeText: {
     fontSize: 13,
-    color: '#16A34A',
+    color: "#16A34A",
   },
   loadingContainer: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   errorText: {
     fontSize: 14,
-    color: '#EF4444',
+    color: "#EF4444",
   },
 });

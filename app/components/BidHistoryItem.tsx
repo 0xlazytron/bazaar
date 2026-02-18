@@ -1,5 +1,6 @@
 import React from 'react';
 import { Image, ImageSourcePropType, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { ImageWithLoader } from './ImageWithLoader';
 import { ThemedText } from './ThemedText';
 
 interface Props {
@@ -19,7 +20,7 @@ export const BidHistoryItem = ({ itemName, amount, time, ranking, totalBids, isH
   return (
     <TouchableOpacity style={styles.container} onPress={onPress} activeOpacity={0.7}>
       <View style={styles.userInfo}>
-        <Image source={image} style={styles.avatar} />
+        <ImageWithLoader source={image} style={styles.avatar} loaderSize="small" resizeMode="cover" />
         <View>
           <ThemedText style={styles.name}>{itemName}</ThemedText>
           <ThemedText style={styles.time}>{displayText}</ThemedText>
@@ -64,6 +65,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
+    overflow: 'hidden',
   },
   name: {
     fontSize: 14,

@@ -1,9 +1,10 @@
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, FlatList, Image, SafeAreaView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, FlatList, SafeAreaView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { getCurrentUser, getUserProfile, setUserPresence, subscribeUserProfile, UserProfile } from '../../lib/auth';
 import { Conversation, deleteConversation, markConversationAsRead, subscribeUserConversations } from '../../lib/firestore';
+import { ImageWithLoader } from '../components/ImageWithLoader';
 
 type MessagesScreenProps = Record<string, never>;
 
@@ -38,12 +39,14 @@ const MessagesScreen: React.FC<MessagesScreenProps> = () => {
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadingConversations, setLoadingConversations] = useState(true);
 
   useEffect(() => {
     if (!currentUser) return;
     setUserPresence(currentUser.uid, true);
     const convUnsub = subscribeUserConversations(currentUser.uid, (convs) => {
       setConversations(convs);
+      setLoadingConversations(false);
       convs.forEach(async (c) => {
         const peerId = c.participants.find((p) => p !== currentUser.uid) || '';
         if (!peerId) return;
@@ -74,7 +77,13 @@ const MessagesScreen: React.FC<MessagesScreenProps> = () => {
       }}
       onLongPress={() => setOpenMenuId(item.id)}
     >
-      <Image source={item.avatar} style={styles.avatar} />
+      <ImageWithLoader
+        source={item.avatar}
+        fallbackSource={require('../../assets/images/avatar.png')}
+        style={styles.avatar}
+        loaderSize="small"
+        debugLabel="MessagesAvatar"
+      />
       <View style={styles.messageContent}>
         <View style={styles.messageHeader}>
           <Text style={styles.userName}>{item.name}</Text>
@@ -158,6 +167,11 @@ const MessagesScreen: React.FC<MessagesScreenProps> = () => {
           <Feather name="filter" size={20} color="#6B7280" />
         </TouchableOpacity>
       </View>
+      {loadingConversations ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#16A34A" />
+        </View>
+      ) : (
       <FlatList
         data={conversations.map((c) => {
           const peerId = c.participants.find((p) => p !== currentUser?.uid) || '';
@@ -176,11 +190,17 @@ const MessagesScreen: React.FC<MessagesScreenProps> = () => {
         keyExtractor={(item) => item.id}
         renderItem={renderMessageItem}
         style={styles.messagesList}
-        contentContainerStyle={styles.messagesListContent}
+        contentContainerStyle={conversations.length === 0 ? styles.emptyListContent : styles.messagesListContent}
         showsVerticalScrollIndicator={false}
         refreshing={refreshing}
         onRefresh={handleRefresh}
+        ListEmptyComponent={
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyText}>No conversations yet</Text>
+          </View>
+        }
       />
+      )}
     </SafeAreaView>
   );
 };
@@ -218,6 +238,10 @@ const styles = StyleSheet.create({
   messagesListContent: {
     paddingBottom: 16,
   },
+  emptyListContent: {
+    flexGrow: 1,
+    paddingBottom: 16,
+  },
   messageItem: {
     flexDirection: 'row',
     paddingVertical: 16,
@@ -229,7 +253,23 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
+    overflow: 'hidden',
     marginRight: 12,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptyState: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  emptyText: {
+    fontSize: 14,
+    color: '#6B7280',
   },
   messageContent: {
     flex: 1,

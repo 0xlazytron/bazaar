@@ -10,13 +10,14 @@ import {
   onSnapshot,
   orderBy,
   query,
+  runTransaction,
   setDoc,
   startAfter,
   updateDoc,
   where,
-} from 'firebase/firestore';
-import { db } from './firebase';
-import { notifyProductWithImage, sendPushToToken } from './notifications';
+} from "firebase/firestore";
+import { db } from "./firebase";
+import { notifyProductWithImage, sendPushToToken } from "./notifications";
 
 export interface Product {
   id?: string;
@@ -37,7 +38,7 @@ export interface Product {
   // Legacy fields for compatibility with existing components
   title?: string;
   description?: string;
-  condition?: 'new' | 'like-new' | 'good' | 'fair' | 'poor';
+  condition?: "new" | "like-new" | "good" | "fair" | "poor";
   images?: string[];
   productImage?: string;
   sellerName?: string;
@@ -55,11 +56,11 @@ export interface Message {
   receiverId: string;
   productId?: string;
   content: string;
-  type: 'text' | 'image' | 'offer' | 'audio' | 'video' | 'system';
+  type: "text" | "image" | "offer" | "audio" | "video" | "system";
   isRead: boolean;
   conversationId?: string;
   attachmentUrl?: string;
-  attachmentType?: 'image' | 'audio' | 'video';
+  attachmentType?: "image" | "audio" | "video";
   createdAt: Date;
 }
 
@@ -97,20 +98,20 @@ export interface Order {
   itemPrice: number;
   deliveryCost: number;
   totalAmount: number;
-  paymentMethod: 'cash' | 'juice' | 'other';
-  deliveryMethod: 'pickup' | 'delivery';
+  paymentMethod: "cash" | "juice" | "other";
+  deliveryMethod: "pickup" | "delivery";
   deliveryAddress?: string;
   pickupLocation?: string;
   productTax?: number;
   taxPaid?: boolean;
   taxProof?: string;
-  status: 'pending' | 'confirmed' | 'shipped' | 'delivered' | 'cancelled';
+  status: "pending" | "confirmed" | "shipped" | "delivered" | "cancelled";
   createdAt: Date;
   updatedAt?: Date;
   completedAt?: Date;
 }
 
-export type ReviewSentiment = 'positive' | 'neutral' | 'negative';
+export type ReviewSentiment = "positive" | "neutral" | "negative";
 
 export interface Review {
   id?: string;
@@ -125,7 +126,13 @@ export interface Review {
   createdAt: Date;
 }
 
-export type NotificationKind = 'auction_outbid' | 'auction_won' | 'auction_bid' | 'order_placed' | 'order_seller' | 'tax';
+export type NotificationKind =
+  | "auction_outbid"
+  | "auction_won"
+  | "auction_bid"
+  | "order_placed"
+  | "order_seller"
+  | "tax";
 
 export interface AppNotification {
   id?: string;
@@ -156,24 +163,28 @@ export interface Category {
 }
 
 // Products
-export const createProduct = async (productData: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>) => {
+export const createProduct = async (
+  productData: Omit<Product, "id" | "createdAt" | "updatedAt">,
+) => {
   try {
     const now = new Date();
-    const docRef = await addDoc(collection(db, 'listings'), {
+    const docRef = await addDoc(collection(db, "listings"), {
       ...productData,
       createdAt: now,
       updatedAt: now,
     });
     return docRef.id;
   } catch (error) {
-    console.error('Error creating product:', error);
+    console.error("Error creating product:", error);
     throw error;
   }
 };
 
-export const getProduct = async (productId: string): Promise<Product | null> => {
+export const getProduct = async (
+  productId: string,
+): Promise<Product | null> => {
   try {
-    const docRef = doc(db, 'listings', productId);
+    const docRef = doc(db, "listings", productId);
     const docSnap = await getDoc(docRef);
 
     if (docSnap.exists()) {
@@ -181,7 +192,7 @@ export const getProduct = async (productId: string): Promise<Product | null> => 
     }
     return null;
   } catch (error) {
-    console.error('Error getting product:', error);
+    console.error("Error getting product:", error);
     throw error;
   }
 };
@@ -189,23 +200,23 @@ export const getProduct = async (productId: string): Promise<Product | null> => 
 // Debug function to check all products in database
 export const getAllProductsDebug = async (): Promise<void> => {
   try {
-    console.log('🔍 DEBUG: Fetching ALL products from database...');
-    const q = query(collection(db, 'listings'));
+    console.log("🔍 DEBUG: Fetching ALL products from database...");
+    const q = query(collection(db, "listings"));
     const querySnapshot = await getDocs(q);
-    console.log('📦 DEBUG: Total products in database:', querySnapshot.size);
+    console.log("📦 DEBUG: Total products in database:", querySnapshot.size);
 
     querySnapshot.forEach((doc) => {
       const data = doc.data();
-      console.log('📄 DEBUG: Product in DB:', {
+      console.log("📄 DEBUG: Product in DB:", {
         id: doc.id,
         title: data.title,
         sellerId: data.sellerId,
         status: data.status,
-        createdAt: data.createdAt?.toDate()
+        createdAt: data.createdAt?.toDate(),
       });
     });
   } catch (error) {
-    console.error('❌ DEBUG: Error fetching all products:', error);
+    console.error("❌ DEBUG: Error fetching all products:", error);
   }
 };
 
@@ -217,18 +228,18 @@ export const getProducts = async (filters?: {
   lastDoc?: DocumentSnapshot;
 }) => {
   try {
-    let q = query(collection(db, 'listings'));
+    let q = query(collection(db, "listings"));
 
     if (filters?.category) {
-      q = query(q, where('category', '==', filters.category));
+      q = query(q, where("category", "==", filters.category));
     }
 
     if (filters?.status) {
-      q = query(q, where('status', '==', filters.status));
+      q = query(q, where("status", "==", filters.status));
     }
 
     if (filters?.sellerId) {
-      q = query(q, where('sellerId', '==', filters.sellerId));
+      q = query(q, where("sellerId", "==", filters.sellerId));
     }
 
     // Temporarily removed orderBy to avoid composite index requirement
@@ -253,12 +264,18 @@ export const getProducts = async (filters?: {
 
     // Sort by createdAt in descending order (newest first) in JavaScript
     products.sort((a, b) => {
-      const aTime = a.createdAt instanceof Date ? a.createdAt.getTime() :
-        (a.createdAt as any)?.toDate ? (a.createdAt as any).toDate().getTime() :
-          new Date(a.createdAt).getTime();
-      const bTime = b.createdAt instanceof Date ? b.createdAt.getTime() :
-        (b.createdAt as any)?.toDate ? (b.createdAt as any).toDate().getTime() :
-          new Date(b.createdAt).getTime();
+      const aTime =
+        a.createdAt instanceof Date
+          ? a.createdAt.getTime()
+          : (a.createdAt as any)?.toDate
+            ? (a.createdAt as any).toDate().getTime()
+            : new Date(a.createdAt).getTime();
+      const bTime =
+        b.createdAt instanceof Date
+          ? b.createdAt.getTime()
+          : (b.createdAt as any)?.toDate
+            ? (b.createdAt as any).toDate().getTime()
+            : new Date(b.createdAt).getTime();
       return bTime - aTime;
     });
 
@@ -267,7 +284,7 @@ export const getProducts = async (filters?: {
       lastDoc: querySnapshot.docs[querySnapshot.docs.length - 1],
     };
   } catch (error) {
-    console.error('Error getting products:', error);
+    console.error("Error getting products:", error);
     throw error;
   }
 };
@@ -275,24 +292,32 @@ export const getProducts = async (filters?: {
 // Categories
 export const getCategories = async (): Promise<Category[]> => {
   try {
-    let q = query(collection(db, 'categories'));
+    let q = query(collection(db, "categories"));
     // Try to order by 'order' if present; ignore errors if field missing
-    try { q = query(q, orderBy('order', 'asc')); } catch { }
+    try {
+      q = query(q, orderBy("order", "asc"));
+    } catch { }
     const qs = await getDocs(q);
     const cats: Category[] = [];
-    qs.forEach((d) => cats.push({ id: d.id, ...(d.data() as any) } as Category));
+    qs.forEach((d) =>
+      cats.push({ id: d.id, ...(d.data() as any) } as Category),
+    );
     return cats;
   } catch (error) {
-    console.error('Error getting categories:', error);
+    console.error("Error getting categories:", error);
     return [];
   }
 };
 
-export const subscribeCategories = (onUpdate: (categories: Category[]) => void) => {
-  const q = query(collection(db, 'categories'));
+export const subscribeCategories = (
+  onUpdate: (categories: Category[]) => void,
+) => {
+  const q = query(collection(db, "categories"));
   return onSnapshot(q, (snap) => {
     const cats: Category[] = [];
-    snap.forEach((d) => cats.push({ id: d.id, ...(d.data() as any) } as Category));
+    snap.forEach((d) =>
+      cats.push({ id: d.id, ...(d.data() as any) } as Category),
+    );
     cats.sort((a, b) => (a.order || 0) - (b.order || 0));
     onUpdate(cats);
   });
@@ -303,8 +328,12 @@ export const getMainCategories = async (): Promise<Category[]> => {
   return all.filter((c) => !c.parentId);
 };
 
-export const subscribeMainCategories = (onUpdate: (categories: Category[]) => void) => {
-  return subscribeCategories((cats) => onUpdate(cats.filter((c) => !c.parentId)));
+export const subscribeMainCategories = (
+  onUpdate: (categories: Category[]) => void,
+) => {
+  return subscribeCategories((cats) =>
+    onUpdate(cats.filter((c) => !c.parentId)),
+  );
 };
 
 export interface CategoryWithSubs extends Category {
@@ -314,56 +343,74 @@ export interface CategoryWithSubs extends Category {
 export const getCategoriesWithSubs = async (): Promise<CategoryWithSubs[]> => {
   const all = await getCategories();
   const mains = all.filter((c) => !c.parentId);
-  return mains.map((m) => ({ ...m, subItems: all.filter((s) => s.parentId === m.id) }));
+  return mains.map((m) => ({
+    ...m,
+    subItems: all.filter((s) => s.parentId === m.id),
+  }));
 };
 
-export const subscribeCategoriesWithSubs = (onUpdate: (categories: CategoryWithSubs[]) => void) => {
+export const subscribeCategoriesWithSubs = (
+  onUpdate: (categories: CategoryWithSubs[]) => void,
+) => {
   return subscribeCategories((all) => {
     const mains = all.filter((c) => !c.parentId);
-    const result = mains.map((m) => ({ ...m, subItems: all.filter((s) => s.parentId === m.id) }));
+    const result = mains.map((m) => ({
+      ...m,
+      subItems: all.filter((s) => s.parentId === m.id),
+    }));
     onUpdate(result);
   });
 };
 
-export const getListingsCountForCategory = async (categoryName: string): Promise<number> => {
+export const getListingsCountForCategory = async (
+  categoryName: string,
+): Promise<number> => {
   try {
-    const q = query(collection(db, 'listings'), where('category', '==', categoryName));
+    const q = query(
+      collection(db, "listings"),
+      where("category", "==", categoryName),
+    );
     const qs = await getDocs(q);
     return qs.size;
   } catch (error) {
-    console.error('Error counting listings for category:', error);
+    console.error("Error counting listings for category:", error);
     return 0;
   }
 };
 
-export const updateProduct = async (productId: string, updates: Partial<Product>) => {
+export const updateProduct = async (
+  productId: string,
+  updates: Partial<Product>,
+) => {
   try {
-    const docRef = doc(db, 'listings', productId);
+    const docRef = doc(db, "listings", productId);
     await updateDoc(docRef, {
       ...updates,
       updatedAt: new Date(),
     });
   } catch (error) {
-    console.error('Error updating product:', error);
+    console.error("Error updating product:", error);
     throw error;
   }
 };
 
 export const deleteProduct = async (productId: string) => {
   try {
-    const docRef = doc(db, 'listings', productId);
+    const docRef = doc(db, "listings", productId);
     await deleteDoc(docRef);
   } catch (error) {
-    console.error('Error deleting product:', error);
+    console.error("Error deleting product:", error);
     throw error;
   }
 };
 
 // Messages
-export const sendMessage = async (messageData: Omit<Message, 'id' | 'createdAt'>) => {
+export const sendMessage = async (
+  messageData: Omit<Message, "id" | "createdAt">,
+) => {
   try {
     const participants = [messageData.senderId, messageData.receiverId].sort();
-    const conversationId = participants.join('_');
+    const conversationId = participants.join("_");
     const now = new Date();
     const basePayload: any = {
       senderId: messageData.senderId,
@@ -375,27 +422,43 @@ export const sendMessage = async (messageData: Omit<Message, 'id' | 'createdAt'>
       createdAt: now,
     };
     if (messageData.productId) basePayload.productId = messageData.productId;
-    if ((messageData as any).attachmentUrl) basePayload.attachmentUrl = (messageData as any).attachmentUrl;
-    if ((messageData as any).attachmentType) basePayload.attachmentType = (messageData as any).attachmentType;
-    const docRef = await addDoc(collection(db, 'messages'), basePayload);
+    if ((messageData as any).attachmentUrl)
+      basePayload.attachmentUrl = (messageData as any).attachmentUrl;
+    if ((messageData as any).attachmentType)
+      basePayload.attachmentType = (messageData as any).attachmentType;
+    const docRef = await addDoc(collection(db, "messages"), basePayload);
 
     // Update or create conversation
-    await updateConversation(messageData.senderId, messageData.receiverId, messageData.content, messageData.productId);
+    await updateConversation(
+      messageData.senderId,
+      messageData.receiverId,
+      messageData.content,
+      messageData.productId,
+    );
     try {
-      const receiverSnap = await getDoc(doc(db, 'users', messageData.receiverId));
-      const senderSnap = await getDoc(doc(db, 'users', messageData.senderId));
+      const receiverSnap = await getDoc(
+        doc(db, "users", messageData.receiverId),
+      );
+      const senderSnap = await getDoc(doc(db, "users", messageData.senderId));
       const token = (receiverSnap.data() as any)?.expoPushToken;
-      const senderName = (senderSnap.data() as any)?.displayName || 'New message';
+      const senderName =
+        (senderSnap.data() as any)?.displayName || "New message";
       const senderAvatar = (senderSnap.data() as any)?.photoURL || undefined;
       if (token) {
-        const body = messageData.type === 'image' ? 'Sent an image' : (messageData.content || 'New message');
-        await sendPushToToken(token, senderName, body, { conversationId, imageUrl: senderAvatar });
+        const body =
+          messageData.type === "image"
+            ? "Sent an image"
+            : messageData.content || "New message";
+        await sendPushToToken(token, senderName, body, {
+          conversationId,
+          imageUrl: senderAvatar,
+        });
       }
     } catch { }
 
     return docRef.id;
   } catch (error) {
-    console.error('Error sending message:', error);
+    console.error("Error sending message:", error);
     throw error;
   }
 };
@@ -403,10 +466,10 @@ export const sendMessage = async (messageData: Omit<Message, 'id' | 'createdAt'>
 export const getMessages = async (conversationId: string, limitCount = 50) => {
   try {
     const q = query(
-      collection(db, 'messages'),
-      where('conversationId', '==', conversationId),
-      orderBy('createdAt', 'desc'),
-      limit(limitCount)
+      collection(db, "messages"),
+      where("conversationId", "==", conversationId),
+      orderBy("createdAt", "desc"),
+      limit(limitCount),
     );
 
     const querySnapshot = await getDocs(q);
@@ -418,7 +481,7 @@ export const getMessages = async (conversationId: string, limitCount = 50) => {
 
     return messages.reverse(); // Return in chronological order
   } catch (error) {
-    console.error('Error getting messages:', error);
+    console.error("Error getting messages:", error);
     throw error;
   }
 };
@@ -426,13 +489,13 @@ export const getMessages = async (conversationId: string, limitCount = 50) => {
 export const subscribeMessages = (
   conversationId: string,
   onMessages: (messages: Message[]) => void,
-  limitCount = 100
+  limitCount = 100,
 ) => {
   const q = query(
-    collection(db, 'messages'),
-    where('conversationId', '==', conversationId),
-    orderBy('createdAt', 'asc'),
-    limit(limitCount)
+    collection(db, "messages"),
+    where("conversationId", "==", conversationId),
+    orderBy("createdAt", "asc"),
+    limit(limitCount),
   );
   return onSnapshot(q, (snapshot) => {
     const messages: Message[] = [];
@@ -443,27 +506,40 @@ export const subscribeMessages = (
   });
 };
 
-export const setTyping = async (conversationId: string, userId: string, typing: boolean) => {
+export const setTyping = async (
+  conversationId: string,
+  userId: string,
+  typing: boolean,
+) => {
   try {
-    const typingRef = doc(db, 'conversations', conversationId, 'typing', userId);
+    const typingRef = doc(
+      db,
+      "conversations",
+      conversationId,
+      "typing",
+      userId,
+    );
     await setDoc(typingRef, { typing, updatedAt: new Date() }, { merge: true });
   } catch (error) {
-    console.error('Error setting typing state:', error);
+    console.error("Error setting typing state:", error);
   }
 };
 
 export const subscribeTyping = (
   conversationId: string,
-  onTyping: (states: { [userId: string]: boolean }) => void
+  onTyping: (states: { [userId: string]: boolean }) => void,
 ) => {
-  return onSnapshot(collection(db, 'conversations', conversationId, 'typing'), (snapshot) => {
-    const state: { [userId: string]: boolean } = {};
-    snapshot.forEach((docSnap) => {
-      const data = docSnap.data() as any;
-      state[docSnap.id] = !!data.typing;
-    });
-    onTyping(state);
-  });
+  return onSnapshot(
+    collection(db, "conversations", conversationId, "typing"),
+    (snapshot) => {
+      const state: { [userId: string]: boolean } = {};
+      snapshot.forEach((docSnap) => {
+        const data = docSnap.data() as any;
+        state[docSnap.id] = !!data.typing;
+      });
+      onTyping(state);
+    },
+  );
 };
 
 export interface CallSession {
@@ -471,26 +547,40 @@ export interface CallSession {
   callerId: string;
   calleeId: string;
   productId?: string;
-  type: 'voice' | 'video';
-  status: 'initiated' | 'ringing' | 'connected' | 'ended' | 'missed';
+  type: "voice" | "video";
+  status: "initiated" | "ringing" | "connected" | "ended" | "missed";
   offerSDP?: string;
   answerSDP?: string;
   createdAt: Date;
   endedAt?: Date;
 }
 
-export const createCall = async (call: Omit<CallSession, 'id' | 'createdAt'>): Promise<string> => {
+export const createCall = async (
+  call: Omit<CallSession, "id" | "createdAt">,
+): Promise<string> => {
   const now = new Date();
-  const ref = await addDoc(collection(db, 'calls'), { ...call, createdAt: now });
+  const ref = await addDoc(collection(db, "calls"), {
+    ...call,
+    createdAt: now,
+  });
   return ref.id;
 };
 
-export const updateCall = async (callId: string, updates: Partial<CallSession>) => {
-  await updateDoc(doc(db, 'calls', callId), { ...updates, updatedAt: new Date() });
+export const updateCall = async (
+  callId: string,
+  updates: Partial<CallSession>,
+) => {
+  await updateDoc(doc(db, "calls", callId), {
+    ...updates,
+    updatedAt: new Date(),
+  });
 };
 
-export const subscribeCall = (callId: string, onUpdate: (call: CallSession | null) => void) => {
-  return onSnapshot(doc(db, 'calls', callId), (snap) => {
+export const subscribeCall = (
+  callId: string,
+  onUpdate: (call: CallSession | null) => void,
+) => {
+  return onSnapshot(doc(db, "calls", callId), (snap) => {
     if (!snap.exists()) return onUpdate(null);
     onUpdate({ id: snap.id, ...snap.data() } as CallSession);
   });
@@ -498,39 +588,46 @@ export const subscribeCall = (callId: string, onUpdate: (call: CallSession | nul
 
 export const subscribeIncomingCalls = (
   userId: string,
-  onIncoming: (call: CallSession) => void
+  onIncoming: (call: CallSession) => void,
 ) => {
-  const q = query(collection(db, 'calls'), where('calleeId', '==', userId));
+  const q = query(collection(db, "calls"), where("calleeId", "==", userId));
   return onSnapshot(q, (snapshot) => {
     snapshot.docChanges().forEach((change) => {
       const data = { id: change.doc.id, ...change.doc.data() } as CallSession;
-      if ((change.type === 'added' || change.type === 'modified') && data.status === 'initiated') {
+      if (
+        (change.type === "added" || change.type === "modified") &&
+        data.status === "initiated"
+      ) {
         onIncoming(data);
       }
     });
   });
 };
 
-export const addIceCandidate = async (callId: string, userId: string, candidate: any) => {
+export const addIceCandidate = async (
+  callId: string,
+  userId: string,
+  candidate: any,
+) => {
   try {
-    await addDoc(collection(db, 'calls', callId, 'candidates', userId), {
+    await addDoc(collection(db, "calls", callId, "candidates", userId), {
       candidate,
       createdAt: new Date(),
     });
   } catch (error) {
-    console.error('Error adding ICE candidate:', error);
+    console.error("Error adding ICE candidate:", error);
   }
 };
 
 export const subscribeIceCandidates = (
   callId: string,
   userId: string,
-  onCandidate: (candidate: any) => void
+  onCandidate: (candidate: any) => void,
 ) => {
-  const q = collection(db, 'calls', callId, 'candidates', userId);
+  const q = collection(db, "calls", callId, "candidates", userId);
   return onSnapshot(q, (snapshot) => {
     snapshot.docChanges().forEach((change) => {
-      if (change.type === 'added') {
+      if (change.type === "added") {
         const data = change.doc.data() as any;
         onCandidate(data.candidate);
       }
@@ -540,32 +637,38 @@ export const subscribeIceCandidates = (
 
 export const markMessageAsRead = async (messageId: string) => {
   try {
-    const docRef = doc(db, 'messages', messageId);
+    const docRef = doc(db, "messages", messageId);
     await updateDoc(docRef, { isRead: true });
   } catch (error) {
-    console.error('Error marking message as read:', error);
+    console.error("Error marking message as read:", error);
     throw error;
   }
 };
 
-export const markConversationAsRead = async (conversationId: string, userId: string) => {
+export const markConversationAsRead = async (
+  conversationId: string,
+  userId: string,
+) => {
   try {
-    const convRef = doc(db, 'conversations', conversationId);
+    const convRef = doc(db, "conversations", conversationId);
     const snap = await getDoc(convRef);
     if (snap.exists()) {
       const data = snap.data() as any;
       const unread = data.unreadCount || {};
       if ((unread[userId] || 0) > 0) {
         unread[userId] = 0;
-        await updateDoc(convRef, { unreadCount: unread, lastMessageTime: new Date() });
+        await updateDoc(convRef, {
+          unreadCount: unread,
+          lastMessageTime: new Date(),
+        });
       }
     }
 
     // Mark receiver messages as read
     const q = query(
-      collection(db, 'messages'),
-      where('conversationId', '==', conversationId),
-      where('receiverId', '==', userId)
+      collection(db, "messages"),
+      where("conversationId", "==", conversationId),
+      where("receiverId", "==", userId),
     );
     const qs = await getDocs(q);
     const updates: Promise<any>[] = [];
@@ -575,15 +678,18 @@ export const markConversationAsRead = async (conversationId: string, userId: str
     });
     if (updates.length) await Promise.all(updates);
   } catch (error) {
-    console.error('Error marking conversation as read:', error);
+    console.error("Error marking conversation as read:", error);
   }
 };
 
 export const subscribeUnreadTotal = (
   userId: string,
-  onTotal: (total: number) => void
+  onTotal: (total: number) => void,
 ) => {
-  const q = query(collection(db, 'conversations'), where('participants', 'array-contains', userId));
+  const q = query(
+    collection(db, "conversations"),
+    where("participants", "array-contains", userId),
+  );
   return onSnapshot(q, (snapshot) => {
     let total = 0;
     snapshot.forEach((d) => {
@@ -596,12 +702,17 @@ export const subscribeUnreadTotal = (
 };
 
 // Conversations
-const updateConversation = async (senderId: string, receiverId: string, lastMessage: string, productId?: string) => {
+const updateConversation = async (
+  senderId: string,
+  receiverId: string,
+  lastMessage: string,
+  productId?: string,
+) => {
   try {
     const participants = [senderId, receiverId].sort();
-    const conversationId = participants.join('_');
+    const conversationId = participants.join("_");
 
-    const conversationRef = doc(db, 'conversations', conversationId);
+    const conversationRef = doc(db, "conversations", conversationId);
     const conversationSnap = await getDoc(conversationRef);
 
     const now = new Date();
@@ -626,7 +737,7 @@ const updateConversation = async (senderId: string, receiverId: string, lastMess
       });
     }
   } catch (error) {
-    console.error('Error updating conversation:', error);
+    console.error("Error updating conversation:", error);
     throw error;
   }
 };
@@ -634,8 +745,8 @@ const updateConversation = async (senderId: string, receiverId: string, lastMess
 export const getUserConversations = async (userId: string) => {
   try {
     const q = query(
-      collection(db, 'conversations'),
-      where('participants', 'array-contains', userId)
+      collection(db, "conversations"),
+      where("participants", "array-contains", userId),
     );
 
     const querySnapshot = await getDocs(q);
@@ -647,25 +758,29 @@ export const getUserConversations = async (userId: string) => {
 
     // Sort by lastMessageTime in memory instead of using orderBy in the query
     conversations.sort((a, b) => {
-      const aTime = a.lastMessageTime ? new Date(a.lastMessageTime).getTime() : 0;
-      const bTime = b.lastMessageTime ? new Date(b.lastMessageTime).getTime() : 0;
+      const aTime = a.lastMessageTime
+        ? new Date(a.lastMessageTime).getTime()
+        : 0;
+      const bTime = b.lastMessageTime
+        ? new Date(b.lastMessageTime).getTime()
+        : 0;
       return bTime - aTime;
     });
 
     return conversations;
   } catch (error) {
-    console.error('Error getting conversations:', error);
+    console.error("Error getting conversations:", error);
     throw error;
   }
 };
 
 export const subscribeUserConversations = (
   userId: string,
-  onUpdate: (conversations: Conversation[]) => void
+  onUpdate: (conversations: Conversation[]) => void,
 ) => {
   const q = query(
-    collection(db, 'conversations'),
-    where('participants', 'array-contains', userId)
+    collection(db, "conversations"),
+    where("participants", "array-contains", userId),
   );
   return onSnapshot(q, (snapshot) => {
     const conversations: Conversation[] = [];
@@ -673,48 +788,58 @@ export const subscribeUserConversations = (
       conversations.push({ id: docSnap.id, ...docSnap.data() } as Conversation);
     });
     conversations.sort((a, b) => {
-      const aTime = a.lastMessageTime ? new Date(a.lastMessageTime).getTime() : 0;
-      const bTime = b.lastMessageTime ? new Date(b.lastMessageTime).getTime() : 0;
+      const aTime = a.lastMessageTime
+        ? new Date(a.lastMessageTime).getTime()
+        : 0;
+      const bTime = b.lastMessageTime
+        ? new Date(b.lastMessageTime).getTime()
+        : 0;
       return bTime - aTime;
     });
     onUpdate(conversations);
   });
 };
 
-export const deleteConversation = async (userId: string, peerId: string): Promise<void> => {
+export const deleteConversation = async (
+  userId: string,
+  peerId: string,
+): Promise<void> => {
   try {
     const participants = [userId, peerId].sort();
-    const conversationId = participants.join('_');
+    const conversationId = participants.join("_");
 
     const messagesQ = query(
-      collection(db, 'messages'),
-      where('conversationId', '==', conversationId)
+      collection(db, "messages"),
+      where("conversationId", "==", conversationId),
     );
     const messagesSnap = await getDocs(messagesQ);
     for (const docSnap of messagesSnap.docs) {
-      await deleteDoc(doc(db, 'messages', docSnap.id));
+      await deleteDoc(doc(db, "messages", docSnap.id));
     }
 
-    const typingSnap = await getDocs(collection(db, 'conversations', conversationId, 'typing'));
+    const typingSnap = await getDocs(
+      collection(db, "conversations", conversationId, "typing"),
+    );
     for (const docSnap of typingSnap.docs) {
-      await deleteDoc(doc(db, 'conversations', conversationId, 'typing', docSnap.id));
+      await deleteDoc(
+        doc(db, "conversations", conversationId, "typing", docSnap.id),
+      );
     }
 
-    await deleteDoc(doc(db, 'conversations', conversationId));
+    await deleteDoc(doc(db, "conversations", conversationId));
   } catch (error) {
-    console.error('Error deleting conversation:', error);
+    console.error("Error deleting conversation:", error);
     throw error;
   }
 };
 
 // Featured Auctions filtering functions
-export const getFeaturedProducts = async (limitCount: number = 10): Promise<Product[]> => {
+export const getFeaturedProducts = async (
+  limitCount: number = 10,
+): Promise<Product[]> => {
   try {
     // Featured products logic: products with high views, likes, or marked as featured
-    let q = query(
-      collection(db, 'listings'),
-      where('status', '==', 'active')
-    );
+    let q = query(collection(db, "listings"), where("status", "==", "active"));
 
     if (limitCount) {
       q = query(q, limit(limitCount));
@@ -737,20 +862,22 @@ export const getFeaturedProducts = async (limitCount: number = 10): Promise<Prod
 
     return products.slice(0, limitCount);
   } catch (error) {
-    console.error('Error getting featured products:', error);
+    console.error("Error getting featured products:", error);
     throw error;
   }
 };
 
-export const getEndingSoonProducts = async (limitCount: number = 10): Promise<Product[]> => {
+export const getEndingSoonProducts = async (
+  limitCount: number = 10,
+): Promise<Product[]> => {
   try {
     const now = new Date();
     const next24Hours = new Date(now.getTime() + 24 * 60 * 60 * 1000);
 
     let q = query(
-      collection(db, 'listings'),
-      where('status', '==', 'active'),
-      where('isAuction', '==', true)
+      collection(db, "listings"),
+      where("status", "==", "active"),
+      where("isAuction", "==", true),
     );
 
     if (limitCount) {
@@ -765,9 +892,10 @@ export const getEndingSoonProducts = async (limitCount: number = 10): Promise<Pr
 
       // Check if auction end time is within next 24 hours
       if (productData.auctionEndTime) {
-        const endTime = productData.auctionEndTime instanceof Date
-          ? productData.auctionEndTime
-          : (productData.auctionEndTime as any).toDate();
+        const endTime =
+          productData.auctionEndTime instanceof Date
+            ? productData.auctionEndTime
+            : (productData.auctionEndTime as any).toDate();
 
         if (endTime > now && endTime <= next24Hours) {
           products.push(productData);
@@ -777,29 +905,171 @@ export const getEndingSoonProducts = async (limitCount: number = 10): Promise<Pr
 
     // Sort by auction end time (soonest first)
     products.sort((a, b) => {
-      const aTime = a.auctionEndTime instanceof Date
-        ? a.auctionEndTime.getTime()
-        : (a.auctionEndTime as any).toDate().getTime();
-      const bTime = b.auctionEndTime instanceof Date
-        ? b.auctionEndTime.getTime()
-        : (b.auctionEndTime as any).toDate().getTime();
+      const aTime =
+        a.auctionEndTime instanceof Date
+          ? a.auctionEndTime.getTime()
+          : (a.auctionEndTime as any).toDate().getTime();
+      const bTime =
+        b.auctionEndTime instanceof Date
+          ? b.auctionEndTime.getTime()
+          : (b.auctionEndTime as any).toDate().getTime();
       return aTime - bTime;
     });
 
     return products.slice(0, limitCount);
   } catch (error) {
-    console.error('Error getting ending soon products:', error);
+    console.error("Error getting ending soon products:", error);
     throw error;
   }
+};
+
+export const finalizeAuction = async (
+  productId: string,
+): Promise<{ status: string; orderId?: string }> => {
+  const now = new Date();
+  const product = await getProduct(productId);
+  if (!product) return { status: "inactive" };
+
+  const isAuctionType =
+    !!product.isAuction ||
+    product.pricingType?.includes("Auction") ||
+    product.pricingType === "both";
+  if (!isAuctionType || !product.auctionEndTime)
+    return { status: product.status };
+
+  const endTimeValue: any = product.auctionEndTime;
+  const endTime =
+    endTimeValue instanceof Date
+      ? endTimeValue
+      : endTimeValue?.toDate
+        ? endTimeValue.toDate()
+        : new Date(endTimeValue);
+  if (!(endTime instanceof Date) || isNaN(endTime.getTime()))
+    return { status: product.status };
+  if (now.getTime() < endTime.getTime()) return { status: product.status };
+
+  if (product.status === "sold") return { status: product.status };
+
+  const existingOrders = await getProductOrders(productId);
+  const latestOrder = existingOrders[0];
+  if (latestOrder?.id) {
+    if (latestOrder.status === "delivered") {
+      if (product.status !== "sold") {
+        await updateProduct(productId, { status: "sold", updatedAt: now });
+      }
+      return { status: "sold", orderId: latestOrder.id };
+    }
+    if (product.status !== "pending_delivery") {
+      await updateProduct(productId, {
+        status: "pending_delivery",
+        updatedAt: now,
+      });
+    }
+    return { status: "pending_delivery", orderId: latestOrder.id };
+  }
+
+  const bidsSnap = await getDocs(
+    query(collection(db, "bids"), where("productId", "==", productId)),
+  );
+  let winner: Bid | null = null;
+  bidsSnap.forEach((docSnap) => {
+    const bid = { id: docSnap.id, ...(docSnap.data() as any) } as Bid;
+    if (!winner) {
+      winner = bid;
+      return;
+    }
+    if (Number(bid.amount) > Number(winner.amount)) {
+      winner = bid;
+      return;
+    }
+    if (Number(bid.amount) === Number(winner.amount)) {
+      const aValue: any = bid.createdAt;
+      const bValue: any = winner.createdAt;
+      const a =
+        aValue instanceof Date
+          ? aValue
+          : aValue?.toDate
+            ? aValue.toDate()
+            : new Date(aValue);
+      const b =
+        bValue instanceof Date
+          ? bValue
+          : bValue?.toDate
+            ? bValue.toDate()
+            : new Date(bValue);
+      if (a.getTime() < b.getTime()) winner = bid;
+    }
+  });
+
+  if (!winner) {
+    if (product.status !== "inactive") {
+      await updateProduct(productId, { status: "inactive", updatedAt: now });
+    }
+    return { status: "inactive" };
+  }
+
+  const normalizePaymentMethod = (value?: string): Order["paymentMethod"] => {
+    const v = (value || "").toLowerCase();
+    if (v.includes("juice")) return "juice";
+    if (v.includes("cash")) return "cash";
+    if (v.includes("other")) return "other";
+    return "cash";
+  };
+
+  const normalizeDeliveryMethod = (value?: string): Order["deliveryMethod"] => {
+    const v = (value || "").toLowerCase();
+    if (v.includes("pick")) return "pickup";
+    if (v.includes("delivery")) return "delivery";
+    return "pickup";
+  };
+
+  const deliveryMethod = normalizeDeliveryMethod(product.deliveryOption);
+  const rawDeliveryCost =
+    typeof product.deliveryCost === "number"
+      ? product.deliveryCost
+      : parseFloat(String(product.deliveryCost || 0));
+  const deliveryCost = Number.isFinite(rawDeliveryCost) ? rawDeliveryCost : 0;
+  const winnerBid = winner as Bid;
+  const itemPrice = Number(winnerBid.amount || 0);
+  const totalAmount =
+    itemPrice + (deliveryMethod === "delivery" ? deliveryCost : 0);
+
+  const orderId = await createOrder({
+    productId,
+    buyerId: winnerBid.bidderId,
+    buyerName: winnerBid.bidderName || "Buyer",
+    buyerEmail: "",
+    sellerId: product.sellerId,
+    sellerName: product.sellerName || "Seller",
+    productTitle: product.title || "Product",
+    productImage: product.images?.[0] || product.productImage,
+    itemPrice,
+    deliveryCost: deliveryMethod === "delivery" ? deliveryCost : 0,
+    totalAmount,
+    paymentMethod: normalizePaymentMethod(product.paymentOption),
+    deliveryMethod,
+    deliveryAddress: "",
+    pickupLocation: product.pickupLocation || "",
+    status: "pending",
+  });
+
+  if (product.status !== "pending_delivery") {
+    await updateProduct(productId, {
+      status: "pending_delivery",
+      updatedAt: now,
+    });
+  }
+
+  return { status: "pending_delivery", orderId };
 };
 
 export const delistExpiredAuctions = async (): Promise<number> => {
   try {
     const now = new Date();
     const q = query(
-      collection(db, 'listings'),
-      where('status', '==', 'active'),
-      where('isAuction', '==', true)
+      collection(db, "listings"),
+      where("status", "==", "active"),
+      where("isAuction", "==", true),
     );
     const querySnapshot = await getDocs(q);
     let count = 0;
@@ -807,33 +1077,33 @@ export const delistExpiredAuctions = async (): Promise<number> => {
     querySnapshot.forEach((docSnap) => {
       const productData = { id: docSnap.id, ...docSnap.data() } as Product;
       if (!productData.auctionEndTime) return;
-      const endTime = productData.auctionEndTime instanceof Date
-        ? productData.auctionEndTime
-        : (productData.auctionEndTime as any).toDate
-          ? (productData.auctionEndTime as any).toDate()
-          : new Date(productData.auctionEndTime);
+      const endTime =
+        productData.auctionEndTime instanceof Date
+          ? productData.auctionEndTime
+          : (productData.auctionEndTime as any).toDate
+            ? (productData.auctionEndTime as any).toDate()
+            : new Date(productData.auctionEndTime);
       if (now.getTime() >= endTime.getTime()) {
-        updates.push(updateProduct(docSnap.id, { status: 'inactive' }));
+        updates.push(finalizeAuction(docSnap.id));
         count++;
       }
     });
     await Promise.all(updates);
     return count;
   } catch (error) {
-    console.error('Error auto-delisting auctions:', error);
+    console.error("Error auto-delisting auctions:", error);
     return 0;
   }
 };
 
-export const getNewlyListedProducts = async (limitCount: number = 10): Promise<Product[]> => {
+export const getNewlyListedProducts = async (
+  limitCount: number = 10,
+): Promise<Product[]> => {
   try {
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
-    let q = query(
-      collection(db, 'listings'),
-      where('status', '==', 'active')
-    );
+    let q = query(collection(db, "listings"), where("status", "==", "active"));
 
     if (limitCount) {
       q = query(q, limit(limitCount * 2)); // Get more to filter properly
@@ -848,9 +1118,10 @@ export const getNewlyListedProducts = async (limitCount: number = 10): Promise<P
       // Check if created within last 7 days
       if (!productData.createdAt) return;
 
-      const createdAt = productData.createdAt instanceof Date
-        ? productData.createdAt
-        : (productData.createdAt as any).toDate();
+      const createdAt =
+        productData.createdAt instanceof Date
+          ? productData.createdAt
+          : (productData.createdAt as any).toDate();
 
       if (createdAt >= sevenDaysAgo) {
         products.push(productData);
@@ -860,28 +1131,29 @@ export const getNewlyListedProducts = async (limitCount: number = 10): Promise<P
     // Sort by creation date (newest first)
     products.sort((a, b) => {
       if (!a.createdAt || !b.createdAt) return 0;
-      const aTime = a.createdAt instanceof Date
-        ? a.createdAt.getTime()
-        : (a.createdAt as any).toDate().getTime();
-      const bTime = b.createdAt instanceof Date
-        ? b.createdAt.getTime()
-        : (b.createdAt as any).toDate().getTime();
+      const aTime =
+        a.createdAt instanceof Date
+          ? a.createdAt.getTime()
+          : (a.createdAt as any).toDate().getTime();
+      const bTime =
+        b.createdAt instanceof Date
+          ? b.createdAt.getTime()
+          : (b.createdAt as any).toDate().getTime();
       return bTime - aTime;
     });
 
     return products.slice(0, limitCount);
   } catch (error) {
-    console.error('Error getting newly listed products:', error);
+    console.error("Error getting newly listed products:", error);
     throw error;
   }
 };
 
-export const getPopularProducts = async (limitCount: number = 10): Promise<Product[]> => {
+export const getPopularProducts = async (
+  limitCount: number = 10,
+): Promise<Product[]> => {
   try {
-    let q = query(
-      collection(db, 'listings'),
-      where('status', '==', 'active')
-    );
+    let q = query(collection(db, "listings"), where("status", "==", "active"));
 
     if (limitCount) {
       q = query(q, limit(limitCount * 2)); // Get more to sort properly
@@ -904,7 +1176,7 @@ export const getPopularProducts = async (limitCount: number = 10): Promise<Produ
 
     return products.slice(0, limitCount);
   } catch (error) {
-    console.error('Error getting popular products:', error);
+    console.error("Error getting popular products:", error);
     throw error;
   }
 };
@@ -917,120 +1189,191 @@ export interface UserFavorite {
   createdAt: Date;
 }
 
-export const addToFavorites = async (userId: string, productId: string): Promise<void> => {
+export const addToFavorites = async (
+  userId: string,
+  productId: string,
+): Promise<void> => {
   try {
-    // Check if already in favorites
-    const q = query(
-      collection(db, 'favorites'),
-      where('userId', '==', userId),
-      where('productId', '==', productId)
-    );
-
-    const querySnapshot = await getDocs(q);
-
-    if (querySnapshot.empty) {
-      await addDoc(collection(db, 'favorites'), {
+    const favoriteRef = doc(db, "favorites", `${userId}_${productId}`);
+    await setDoc(
+      favoriteRef,
+      {
         userId,
         productId,
         createdAt: new Date(),
-      });
-    }
+      },
+      { merge: true },
+    );
   } catch (error) {
-    console.error('Error adding to favorites:', error);
+    console.error("Error adding to favorites:", error);
     throw error;
   }
 };
 
-export const removeFromFavorites = async (userId: string, productId: string): Promise<void> => {
+export const removeFromFavorites = async (
+  userId: string,
+  productId: string,
+): Promise<void> => {
   try {
+    await deleteDoc(doc(db, "favorites", `${userId}_${productId}`)).catch(
+      () => { },
+    );
     const q = query(
-      collection(db, 'favorites'),
-      where('userId', '==', userId),
-      where('productId', '==', productId)
+      collection(db, "favorites"),
+      where("userId", "==", userId),
+      where("productId", "==", productId),
     );
 
     const querySnapshot = await getDocs(q);
-
-    querySnapshot.forEach(async (docSnapshot) => {
-      await deleteDoc(doc(db, 'favorites', docSnapshot.id));
-    });
+    await Promise.all(
+      querySnapshot.docs.map((docSnapshot) =>
+        deleteDoc(doc(db, "favorites", docSnapshot.id)),
+      ),
+    );
   } catch (error) {
-    console.error('Error removing from favorites:', error);
+    console.error("Error removing from favorites:", error);
     throw error;
   }
 };
 
 export const getUserFavorites = async (userId: string): Promise<string[]> => {
   try {
-    const q = query(
-      collection(db, 'favorites'),
-      where('userId', '==', userId)
-    );
+    const q = query(collection(db, "favorites"), where("userId", "==", userId));
 
     const querySnapshot = await getDocs(q);
-    const favorites: { productId: string; createdAt: Date }[] = [];
+    const favorites: { productId: string; createdAt: Date | null }[] = [];
 
     querySnapshot.forEach((doc) => {
       const data = doc.data() as UserFavorite;
       favorites.push({
         productId: data.productId,
-        createdAt: data.createdAt
+        createdAt:
+          data.createdAt instanceof Date
+            ? data.createdAt
+            : (data.createdAt as any)?.toDate
+              ? (data.createdAt as any).toDate()
+              : data.createdAt
+                ? new Date(data.createdAt as any)
+                : null,
       });
     });
 
     // Sort by createdAt in memory instead of using orderBy in the query
     favorites.sort((a, b) => {
       try {
-        const aTime = a.createdAt instanceof Date ? a.createdAt.getTime() : new Date(a.createdAt).getTime();
-        const bTime = b.createdAt instanceof Date ? b.createdAt.getTime() : new Date(b.createdAt).getTime();
+        const aTime = a.createdAt ? a.createdAt.getTime() : 0;
+        const bTime = b.createdAt ? b.createdAt.getTime() : 0;
         return bTime - aTime;
       } catch (error) {
-        console.warn('Error sorting favorites by createdAt:', error);
+        console.warn("Error sorting favorites by createdAt:", error);
         return 0;
       }
     });
 
-    return favorites.map(fav => fav.productId);
+    const deduped: string[] = [];
+    const seen = new Set<string>();
+    for (const fav of favorites) {
+      if (!fav.productId) continue;
+      if (seen.has(fav.productId)) continue;
+      seen.add(fav.productId);
+      deduped.push(fav.productId);
+    }
+    return deduped;
   } catch (error) {
-    console.error('Error getting user favorites:', error);
+    console.error("Error getting user favorites:", error);
     throw error;
   }
 };
 
-export const isProductFavorited = async (userId: string, productId: string): Promise<boolean> => {
+export const subscribeUserFavorites = (
+  userId: string,
+  onUpdate: (productIds: string[]) => void,
+) => {
+  const q = query(collection(db, "favorites"), where("userId", "==", userId));
+  return onSnapshot(q, (snapshot) => {
+    const items: { productId: string; createdAt: Date | null }[] = [];
+    snapshot.forEach((docSnap) => {
+      const data = docSnap.data() as any;
+      const productId = typeof data.productId === "string" ? data.productId : "";
+      if (!productId) return;
+      const createdAtValue: any = data.createdAt;
+      const createdAt =
+        createdAtValue instanceof Date
+          ? createdAtValue
+          : createdAtValue?.toDate
+            ? createdAtValue.toDate()
+            : createdAtValue
+              ? new Date(createdAtValue)
+              : null;
+      items.push({ productId, createdAt });
+    });
+
+    items.sort((a, b) => {
+      const aTime = a.createdAt ? a.createdAt.getTime() : 0;
+      const bTime = b.createdAt ? b.createdAt.getTime() : 0;
+      return bTime - aTime;
+    });
+
+    const result: string[] = [];
+    const seen = new Set<string>();
+    for (const item of items) {
+      if (seen.has(item.productId)) continue;
+      seen.add(item.productId);
+      result.push(item.productId);
+    }
+    onUpdate(result);
+  });
+};
+
+export const isProductFavorited = async (
+  userId: string,
+  productId: string,
+): Promise<boolean> => {
   try {
     const q = query(
-      collection(db, 'favorites'),
-      where('userId', '==', userId),
-      where('productId', '==', productId)
+      collection(db, "favorites"),
+      where("userId", "==", userId),
+      where("productId", "==", productId),
     );
 
     const querySnapshot = await getDocs(q);
     return !querySnapshot.empty;
   } catch (error) {
-    console.error('Error checking if product is favorited:', error);
+    console.error("Error checking if product is favorited:", error);
     return false;
   }
 };
 
 // Bid Functions
-export const placeBid = async (bidData: Omit<Bid, 'id' | 'createdAt' | 'isHighest'>) => {
+export const placeBid = async (
+  bidData: Omit<Bid, "id" | "createdAt" | "isHighest">,
+) => {
   try {
     const now = new Date();
 
     // First, get the current product to validate the bid
     const product = await getProduct(bidData.productId);
     if (!product) {
-      throw new Error('Product not found');
+      throw new Error("Product not found");
     }
-    if (product.status !== 'active') {
-      throw new Error('auction ended or item not available');
+    if (product.status !== "active") {
+      throw new Error("auction ended or item not available");
     }
     if (product.auctionEndTime) {
-      const end = product.auctionEndTime instanceof Date ? product.auctionEndTime : new Date(product.auctionEndTime);
+      const endValue: any = product.auctionEndTime;
+      const end =
+        endValue instanceof Date
+          ? endValue
+          : endValue?.toDate
+            ? endValue.toDate()
+            : new Date(endValue);
+      if (!(end instanceof Date) || isNaN(end.getTime())) {
+        await finalizeAuction(bidData.productId);
+        throw new Error("auction ended");
+      }
       if (now.getTime() >= end.getTime()) {
-        await updateProduct(bidData.productId, { status: 'inactive' });
-        throw new Error('auction ended');
+        await finalizeAuction(bidData.productId);
+        throw new Error("auction ended");
       }
     }
 
@@ -1039,109 +1382,149 @@ export const placeBid = async (bidData: Omit<Bid, 'id' | 'createdAt' | 'isHighes
 
     // Validate bid amount
     if (newBidAmount <= currentBid) {
-      throw new Error(`Bid must be higher than current bid of Rs ${currentBid}`);
+      throw new Error(
+        `Bid must be higher than current bid of Rs ${currentBid}`,
+      );
     }
 
     const previousBidsQuery = query(
-      collection(db, 'bids'),
-      where('productId', '==', bidData.productId),
-      where('isHighest', '==', true)
+      collection(db, "bids"),
+      where("productId", "==", bidData.productId),
+      where("isHighest", "==", true),
     );
 
     const previousBidsSnapshot = await getDocs(previousBidsQuery);
     const previousHighestBids: Bid[] = [];
     previousBidsSnapshot.forEach((docSnap) => {
-      previousHighestBids.push({ id: docSnap.id, ...(docSnap.data() as any) } as Bid);
+      previousHighestBids.push({
+        id: docSnap.id,
+        ...(docSnap.data() as any),
+      } as Bid);
     });
     const updatePromises = previousBidsSnapshot.docs.map((docSnap) =>
-      updateDoc(docSnap.ref, { isHighest: false })
+      updateDoc(docSnap.ref, { isHighest: false }),
     );
 
     const notificationPromises: Promise<any>[] = [];
     previousHighestBids.forEach((prevBid) => {
       if (prevBid.bidderId === bidData.bidderId) return;
-      notificationPromises.push((async () => {
-        const notification: Omit<AppNotification, 'id'> = {
-          userId: prevBid.bidderId,
-          type: 'auction_outbid',
-          title: "You've been outbid",
-          message: `Someone placed a higher bid on ${product.title || 'your watched item'}.`,
-          productId: bidData.productId,
-          productTitle: product.title,
-          productImage: product.images && product.images.length ? product.images[0] : undefined,
-          amount: newBidAmount,
-          isRead: false,
-          isImportant: false,
-          createdAt: now,
-        };
-        const notifRef = await addDoc(collection(db, 'notifications'), notification as any);
-        try {
-          const receiverSnap = await getDoc(doc(db, 'users', prevBid.bidderId));
-          const token = (receiverSnap.data() as any)?.expoPushToken as string | undefined;
-          const imageUrl = notification.productImage as string | undefined;
-          const data: any = {
-            type: notification.type,
-            productId: notification.productId,
-            notificationId: notifRef.id,
-            imageUrl,
+      notificationPromises.push(
+        (async () => {
+          const notification: Omit<AppNotification, "id"> = {
+            userId: prevBid.bidderId,
+            type: "auction_outbid",
+            title: "You've been outbid",
+            message: `Someone placed a higher bid on ${product.title || "your watched item"}.`,
+            productId: bidData.productId,
+            productTitle: product.title,
+            productImage:
+              product.images && product.images.length
+                ? product.images[0]
+                : undefined,
+            amount: newBidAmount,
+            isRead: false,
+            isImportant: false,
+            createdAt: now,
           };
-          if (token) {
-            await sendPushToToken(token, notification.title, notification.message, data);
-          } else {
-            await notifyProductWithImage(notification.title, notification.message, imageUrl);
-          }
-        } catch { }
-      })());
+          const notifRef = await addDoc(
+            collection(db, "notifications"),
+            notification as any,
+          );
+          try {
+            const receiverSnap = await getDoc(
+              doc(db, "users", prevBid.bidderId),
+            );
+            const token = (receiverSnap.data() as any)?.expoPushToken as
+              | string
+              | undefined;
+            const imageUrl = notification.productImage as string | undefined;
+            const data: any = {
+              type: notification.type,
+              productId: notification.productId,
+              notificationId: notifRef.id,
+              imageUrl,
+            };
+            if (token) {
+              await sendPushToToken(
+                token,
+                notification.title,
+                notification.message,
+                data,
+              );
+            } else {
+              await notifyProductWithImage(
+                notification.title,
+                notification.message,
+                imageUrl,
+              );
+            }
+          } catch { }
+        })(),
+      );
     });
 
     if (product.sellerId && product.sellerId !== bidData.bidderId) {
-      notificationPromises.push((async () => {
-        const sellerNotification: Omit<AppNotification, 'id'> = {
-          userId: product.sellerId,
-          type: 'auction_bid',
-          title: 'New bid on your listing',
-          message: `Someone placed a bid of Rs ${newBidAmount} on ${product.title || 'your listing'}.`,
-          productId: bidData.productId,
-          productTitle: product.title,
-          productImage: product.images && product.images.length ? product.images[0] : undefined,
-          amount: newBidAmount,
-          isRead: false,
-          isImportant: false,
-          createdAt: now,
-        };
-        const notifRef = await addDoc(collection(db, 'notifications'), sellerNotification as any);
-        try {
-          const receiverSnap = await getDoc(doc(db, 'users', product.sellerId));
-          const token = (receiverSnap.data() as any)?.expoPushToken as string | undefined;
-          const imageUrl = sellerNotification.productImage as string | undefined;
-          const data: any = {
-            type: sellerNotification.type,
-            productId: sellerNotification.productId,
-            notificationId: notifRef.id,
-            imageUrl,
+      notificationPromises.push(
+        (async () => {
+          const sellerNotification: Omit<AppNotification, "id"> = {
+            userId: product.sellerId,
+            type: "auction_bid",
+            title: "New bid on your listing",
+            message: `Someone placed a bid of Rs ${newBidAmount} on ${product.title || "your listing"}.`,
+            productId: bidData.productId,
+            productTitle: product.title,
+            productImage:
+              product.images && product.images.length
+                ? product.images[0]
+                : undefined,
+            amount: newBidAmount,
+            isRead: false,
+            isImportant: false,
+            createdAt: now,
           };
-          if (token) {
-            await sendPushToToken(
-              token,
-              sellerNotification.title,
-              sellerNotification.message,
-              data
+          const notifRef = await addDoc(
+            collection(db, "notifications"),
+            sellerNotification as any,
+          );
+          try {
+            const receiverSnap = await getDoc(
+              doc(db, "users", product.sellerId),
             );
-          } else {
-            await notifyProductWithImage(
-              sellerNotification.title,
-              sellerNotification.message,
-              imageUrl
-            );
-          }
-        } catch { }
-      })());
+            const token = (receiverSnap.data() as any)?.expoPushToken as
+              | string
+              | undefined;
+            const imageUrl = sellerNotification.productImage as
+              | string
+              | undefined;
+            const data: any = {
+              type: sellerNotification.type,
+              productId: sellerNotification.productId,
+              notificationId: notifRef.id,
+              imageUrl,
+            };
+            if (token) {
+              await sendPushToToken(
+                token,
+                sellerNotification.title,
+                sellerNotification.message,
+                data,
+              );
+            } else {
+              await notifyProductWithImage(
+                sellerNotification.title,
+                sellerNotification.message,
+                imageUrl,
+              );
+            }
+          } catch { }
+        })(),
+      );
     }
 
     await Promise.all([...updatePromises, ...notificationPromises]);
 
     // Create the new bid
-    const bidRef = await addDoc(collection(db, 'bids'), {
+    const bidRef = await addDoc(collection(db, "bids"), {
       ...bidData,
       amount: newBidAmount,
       createdAt: now,
@@ -1150,8 +1533,8 @@ export const placeBid = async (bidData: Omit<Bid, 'id' | 'createdAt' | 'isHighes
 
     // Update the product with new current bid and bid count
     const bidCountQuery = query(
-      collection(db, 'bids'),
-      where('productId', '==', bidData.productId)
+      collection(db, "bids"),
+      where("productId", "==", bidData.productId),
     );
     const bidCountSnapshot = await getDocs(bidCountQuery);
     const totalBids = bidCountSnapshot.size;
@@ -1163,7 +1546,7 @@ export const placeBid = async (bidData: Omit<Bid, 'id' | 'createdAt' | 'isHighes
 
     return bidRef.id;
   } catch (error) {
-    console.error('Error placing bid:', error);
+    console.error("Error placing bid:", error);
     throw error;
   }
 };
@@ -1171,9 +1554,9 @@ export const placeBid = async (bidData: Omit<Bid, 'id' | 'createdAt' | 'isHighes
 export const getBidHistory = async (productId: string): Promise<Bid[]> => {
   try {
     const q = query(
-      collection(db, 'bids'),
-      where('productId', '==', productId),
-      orderBy('createdAt', 'desc')
+      collection(db, "bids"),
+      where("productId", "==", productId),
+      orderBy("createdAt", "desc"),
     );
 
     const querySnapshot = await getDocs(q);
@@ -1184,30 +1567,67 @@ export const getBidHistory = async (productId: string): Promise<Bid[]> => {
       bids.push(bidData);
     });
 
-    // Sort by amount descending first, then by createdAt descending
-    // This ensures the highest bid appears first
+    const bidTimeMs = (value: any) => {
+      if (!value) return 0;
+      const d = value instanceof Date ? value : value?.toDate ? value.toDate() : new Date(value);
+      const ms = d.getTime();
+      return isNaN(ms) ? 0 : ms;
+    };
+
     bids.sort((a, b) => {
-      // First sort by amount (highest first)
       if (b.amount !== a.amount) {
         return b.amount - a.amount;
       }
-      // If amounts are equal, sort by createdAt (newest first)
-      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      return bidTimeMs(b.createdAt) - bidTimeMs(a.createdAt);
     });
 
     return bids;
   } catch (error) {
-    console.error('Error getting bid history:', error);
+    console.error("Error getting bid history:", error);
     throw error;
   }
+};
+
+export const subscribeBidHistory = (
+  productId: string,
+  onUpdate: (bids: Bid[]) => void,
+) => {
+  const q = query(
+    collection(db, "bids"),
+    where("productId", "==", productId),
+    orderBy("createdAt", "desc"),
+  );
+
+  const bidTimeMs = (value: any) => {
+    if (!value) return 0;
+    const d = value instanceof Date ? value : value?.toDate ? value.toDate() : new Date(value);
+    const ms = d.getTime();
+    return isNaN(ms) ? 0 : ms;
+  };
+
+  return onSnapshot(q, (snapshot) => {
+    const bids: Bid[] = [];
+    snapshot.forEach((docSnap) => {
+      bids.push({ id: docSnap.id, ...(docSnap.data() as any) } as Bid);
+    });
+
+    bids.sort((a, b) => {
+      if (b.amount !== a.amount) {
+        return b.amount - a.amount;
+      }
+      return bidTimeMs(b.createdAt) - bidTimeMs(a.createdAt);
+    });
+
+    onUpdate(bids);
+  });
 };
 
 export const getUserBids = async (userId: string): Promise<Bid[]> => {
   try {
     const q = query(
-      collection(db, 'bids'),
-      where('bidderId', '==', userId),
-      orderBy('createdAt', 'desc')
+      collection(db, "bids"),
+      where("bidderId", "==", userId),
+      orderBy("createdAt", "desc"),
     );
 
     const querySnapshot = await getDocs(q);
@@ -1220,7 +1640,7 @@ export const getUserBids = async (userId: string): Promise<Bid[]> => {
 
     return bids;
   } catch (error) {
-    console.error('Error getting user bids:', error);
+    console.error("Error getting user bids:", error);
     throw error;
   }
 };
@@ -1229,16 +1649,18 @@ export const getUserBids = async (userId: string): Promise<Bid[]> => {
 const formatTimeAgo = (timestamp: any) => {
   const now = new Date();
   const bidTime = timestamp?.toDate ? timestamp.toDate() : new Date(timestamp);
-  const diffInMinutes = Math.floor((now.getTime() - bidTime.getTime()) / (1000 * 60));
+  const diffInMinutes = Math.floor(
+    (now.getTime() - bidTime.getTime()) / (1000 * 60),
+  );
 
   if (diffInMinutes < 60) {
     return `${diffInMinutes} minutes ago`;
   } else if (diffInMinutes < 1440) {
     const hours = Math.floor(diffInMinutes / 60);
-    return `${hours} hour${hours > 1 ? 's' : ''} ago`;
+    return `${hours} hour${hours > 1 ? "s" : ""} ago`;
   } else {
     const days = Math.floor(diffInMinutes / 1440);
-    return `${days} day${days > 1 ? 's' : ''} ago`;
+    return `${days} day${days > 1 ? "s" : ""} ago`;
   }
 };
 
@@ -1255,10 +1677,10 @@ export interface BidWithDetails extends Bid {
 // Test function to count all bids in database
 export const countAllBids = async (): Promise<number> => {
   try {
-    console.log('🔍 Counting all bids in database...');
-    const q = query(collection(db, 'bids'));
+    console.log("🔍 Counting all bids in database...");
+    const q = query(collection(db, "bids"));
     const querySnapshot = await getDocs(q);
-    console.log('🔍 Total bids in database:', querySnapshot.size);
+    console.log("🔍 Total bids in database:", querySnapshot.size);
 
     // Log some sample bids
     querySnapshot.docs.slice(0, 3).forEach((doc, index) => {
@@ -1268,7 +1690,7 @@ export const countAllBids = async (): Promise<number> => {
 
     return querySnapshot.size;
   } catch (error) {
-    console.error('❌ Error counting bids:', error);
+    console.error("❌ Error counting bids:", error);
     return 0;
   }
 };
@@ -1276,10 +1698,10 @@ export const countAllBids = async (): Promise<number> => {
 // Test function to count all products in database
 export const countAllProducts = async (): Promise<number> => {
   try {
-    console.log('🔍 Counting all products in database...');
-    const q = query(collection(db, 'listings'));
+    console.log("🔍 Counting all products in database...");
+    const q = query(collection(db, "listings"));
     const querySnapshot = await getDocs(q);
-    console.log('🔍 Total products in database:', querySnapshot.size);
+    console.log("🔍 Total products in database:", querySnapshot.size);
 
     // Log some sample products
     querySnapshot.docs.slice(0, 3).forEach((doc, index) => {
@@ -1288,14 +1710,14 @@ export const countAllProducts = async (): Promise<number> => {
         id: doc.id,
         title: data.title,
         currentBid: data.currentBid,
-        bidCount: data.bidCount
+        bidCount: data.bidCount,
       };
       console.log(`🔍 Sample product ${index + 1}:`, productInfo);
     });
 
     return querySnapshot.size;
   } catch (error) {
-    console.error('❌ Error counting products:', error);
+    console.error("❌ Error counting products:", error);
     return 0;
   }
 };
@@ -1303,7 +1725,7 @@ export const countAllProducts = async (): Promise<number> => {
 // Check if specific product exists
 export const checkProductExists = async (productId: string) => {
   try {
-    const productRef = doc(db, 'listings', productId);
+    const productRef = doc(db, "listings", productId);
     const productSnap = await getDoc(productRef);
     console.log(`🔍 Product ${productId} exists:`, productSnap.exists());
 
@@ -1324,7 +1746,7 @@ export const testFetchProduct = async (productId: string) => {
     console.log(`🧪 Testing direct fetch for product: ${productId}`);
     console.log(`🧪 Database app:`, db.app.name);
 
-    const productRef = doc(db, 'listings', productId);
+    const productRef = doc(db, "listings", productId);
     console.log(`🧪 Product reference:`, productRef);
     console.log(`🧪 Product reference path:`, productRef.path);
 
@@ -1345,139 +1767,96 @@ export const testFetchProduct = async (productId: string) => {
   }
 };
 
-export const getUserBidsWithDetails = async (userId: string): Promise<BidWithDetails[]> => {
+export const getUserBidsWithDetails = async (
+  userId: string,
+): Promise<BidWithDetails[]> => {
+  if (!userId || userId.trim() === "") return [];
+
   try {
-    console.log('🔍 getUserBidsWithDetails called for userId:', userId);
-    console.log('🔍 userId type:', typeof userId);
-    console.log('🔍 userId length:', userId?.length);
-    console.log('🔍 userId is empty?', !userId || userId.trim() === '');
-
-    if (!userId || userId.trim() === '') {
-      console.error('❌ getUserBidsWithDetails: userId is empty or null');
-      return [];
-    }
-
     const q = query(
-      collection(db, 'bids'),
-      where('bidderId', '==', userId),
-      orderBy('createdAt', 'desc')
+      collection(db, "bids"),
+      where("bidderId", "==", userId),
+      orderBy("createdAt", "desc"),
     );
 
-    console.log('🔍 About to execute query...');
     const querySnapshot = await getDocs(q);
-    console.log('🔍 Query snapshot size:', querySnapshot.size);
-    console.log('🔍 Query snapshot empty?', querySnapshot.empty);
+    const userBids = querySnapshot.docs.map(
+      (docSnap) => ({ id: docSnap.id, ...docSnap.data() }) as Bid,
+    );
+
+    const productCache = new Map<string, Product | null>();
+    const productBidsCache = new Map<string, Bid[]>();
+
     const bidsWithDetails: BidWithDetails[] = [];
 
-    // Group bids by product to calculate rankings
-    const bidsByProduct: { [productId: string]: Bid[] } = {};
-    const allBids: Bid[] = [];
+    for (const userBid of userBids) {
+      const productId = userBid.productId;
 
-    querySnapshot.forEach((doc) => {
-      const bidData = { id: doc.id, ...doc.data() } as Bid;
-      console.log('🔍 Processing bid:', bidData);
-      allBids.push(bidData);
-
-      if (!bidsByProduct[bidData.productId]) {
-        bidsByProduct[bidData.productId] = [];
-      }
-      bidsByProduct[bidData.productId].push(bidData);
-    });
-
-    console.log('🔍 Total bids found:', allBids.length);
-
-    // For each user bid, get product details and calculate ranking
-    for (const userBid of allBids) {
-      try {
-        // Get product details
-        console.log(`🔍 Attempting to fetch product: ${userBid.productId}`);
-        const productRef = doc(db, 'listings', userBid.productId);
-        console.log(`🔍 Product reference created:`, productRef);
-
-        const productDoc = await getDoc(productRef);
-        console.log(`🔍 Product document fetched. Exists: ${productDoc.exists()}`);
-
-        let productData: Product;
-
-        if (!productDoc.exists()) {
-          console.error(`❌ Product ${userBid.productId} not found in Firestore`);
-          console.log(`🔍 Product reference path: ${productRef.path}`);
-          console.log(`🔍 Database instance:`, db);
-          // Create placeholder product data for missing products
-          productData = {
-            id: userBid.productId,
-            category: 'unknown',
-            createdAt: new Date(),
-            sellerId: 'unknown',
-            price: userBid.amount,
-            status: 'inactive',
-            title: `Product Not Found (${userBid.productId})`,
-            description: 'This product is no longer available',
-            condition: 'poor',
-            images: [],
-            sellerName: 'Unknown Seller',
-            location: 'Unknown',
-            isAuction: false,
-            views: 0,
-            updatedAt: new Date()
-          } as Product;
-        } else {
-          productData = productDoc.data() as Product;
+      let product = productCache.get(productId);
+      if (product === undefined) {
+        try {
+          product = await getProduct(productId);
+        } catch {
+          product = null;
         }
-
-        // Get all bids for this product to calculate ranking
-        const productBidsQuery = query(
-          collection(db, 'bids'),
-          where('productId', '==', userBid.productId),
-          orderBy('amount', 'desc')
-        );
-
-        const productBidsSnapshot = await getDocs(productBidsQuery);
-        const productBids: Bid[] = [];
-
-        productBidsSnapshot.forEach((doc) => {
-          productBids.push({ id: doc.id, ...doc.data() } as Bid);
-        });
-
-        // Calculate ranking (1-based index)
-        const ranking = productBids.findIndex(bid => bid.id === userBid.id) + 1;
-
-        const bidWithDetails: BidWithDetails = {
-          ...userBid,
-          productTitle: productData.title || 'Unknown Product',
-          productImage: productData.images && productData.images.length > 0 ? productData.images[0] : null,
-          ranking: ranking,
-          totalBids: productBids.length,
-          timeAgo: formatTimeAgo(userBid.createdAt),
-          isHighestBid: ranking === 1
-        };
-
-        bidsWithDetails.push(bidWithDetails);
-      } catch (error) {
-        console.error(`Error processing bid ${userBid.id}:`, error);
+        productCache.set(productId, product);
       }
+
+      let productBids = productBidsCache.get(productId);
+      if (!productBids) {
+        try {
+          const productBidsQuery = query(
+            collection(db, "bids"),
+            where("productId", "==", productId),
+            orderBy("amount", "desc"),
+          );
+          const productBidsSnapshot = await getDocs(productBidsQuery);
+          productBids = productBidsSnapshot.docs.map(
+            (docSnap) => ({ id: docSnap.id, ...docSnap.data() }) as Bid,
+          );
+        } catch {
+          productBids = [];
+        }
+        productBidsCache.set(productId, productBids);
+      }
+
+      const rankingIndex = productBids.findIndex(
+        (bid) => bid.id === userBid.id,
+      );
+      const ranking = rankingIndex >= 0 ? rankingIndex + 1 : 0;
+
+      bidsWithDetails.push({
+        ...userBid,
+        productTitle: product?.title || "Product no longer available",
+        productImage:
+          product?.images && product.images.length > 0
+            ? product.images[0]
+            : null,
+        ranking,
+        totalBids: productBids.length,
+        timeAgo: formatTimeAgo(userBid.createdAt),
+        isHighestBid: ranking === 1,
+      });
     }
 
-    console.log('🔍 Final bidsWithDetails array length:', bidsWithDetails.length);
-    console.log('🔍 Final bidsWithDetails:', bidsWithDetails);
     return bidsWithDetails;
-  } catch (error) {
-    console.error('❌ Error getting user bids with details:', error);
-    console.error('❌ Error details:', error);
-    throw error;
+  } catch {
+    return [];
   }
 };
 
-export const createReview = async (reviewData: Omit<Review, 'id' | 'createdAt'>) => {
+export const createReview = async (
+  reviewData: Omit<Review, "id" | "createdAt">,
+) => {
   try {
     const now = new Date();
-    const docRef = await addDoc(collection(db, 'reviews'), {
+    const docRef = await addDoc(collection(db, "reviews"), {
       ...reviewData,
       createdAt: now,
     });
     return docRef.id;
   } catch (error) {
-    console.error('Error creating review:', error);
+    console.error("Error creating review:", error);
     throw error;
   }
 };
@@ -1485,9 +1864,9 @@ export const createReview = async (reviewData: Omit<Review, 'id' | 'createdAt'>)
 export const getSellerReviews = async (sellerId: string): Promise<Review[]> => {
   try {
     const q = query(
-      collection(db, 'reviews'),
-      where('sellerId', '==', sellerId),
-      orderBy('createdAt', 'desc')
+      collection(db, "reviews"),
+      where("sellerId", "==", sellerId),
+      orderBy("createdAt", "desc"),
     );
     const snapshot = await getDocs(q);
     const items: Review[] = [];
@@ -1496,17 +1875,19 @@ export const getSellerReviews = async (sellerId: string): Promise<Review[]> => {
     });
     return items;
   } catch (error) {
-    console.error('Error getting seller reviews:', error);
+    console.error("Error getting seller reviews:", error);
     throw error;
   }
 };
 
-export const getReviewForOrder = async (orderId: string): Promise<Review | null> => {
+export const getReviewForOrder = async (
+  orderId: string,
+): Promise<Review | null> => {
   try {
     const q = query(
-      collection(db, 'reviews'),
-      where('orderId', '==', orderId),
-      limit(1)
+      collection(db, "reviews"),
+      where("orderId", "==", orderId),
+      limit(1),
     );
     const snapshot = await getDocs(q);
     if (snapshot.empty) {
@@ -1515,42 +1896,136 @@ export const getReviewForOrder = async (orderId: string): Promise<Review | null>
     const docSnap = snapshot.docs[0];
     return { id: docSnap.id, ...(docSnap.data() as any) } as Review;
   } catch (error) {
-    console.error('Error getting review for order:', error);
+    console.error("Error getting review for order:", error);
     throw error;
   }
 };
 
 // Order Functions
-export const createOrder = async (orderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>) => {
+export const createOrder = async (
+  orderData: Omit<Order, "id" | "createdAt" | "updatedAt">,
+) => {
   try {
     const now = new Date();
 
-    // Validate required fields
     if (!orderData.productId || !orderData.buyerId || !orderData.sellerId) {
-      throw new Error('Missing required order fields');
+      throw new Error("Missing required order fields");
     }
 
-    const orderNumber = `ORD-${now.getTime().toString(36).toUpperCase()}`;
+    const orderId = `product_${orderData.productId}`;
+    const orderRef = doc(db, "orders", orderId);
+    const listingRef = doc(db, "listings", orderData.productId);
 
-    const orderRef = await addDoc(collection(db, 'orders'), {
-      ...orderData,
-      orderNumber,
-      createdAt: now,
-      updatedAt: now,
+    const existingQ = query(
+      collection(db, "orders"),
+      where("productId", "==", orderData.productId),
+      orderBy("createdAt", "desc"),
+      limit(1),
+    );
+    const existingSnap = await getDocs(existingQ);
+    if (!existingSnap.empty) {
+      return existingSnap.docs[0].id;
+    }
+
+    const product = await getProduct(orderData.productId);
+    if (!product) {
+      throw new Error("Product not found");
+    }
+
+    const hasBuyNowOption =
+      product.pricingType === "Fixed Price (Buy Now)" ||
+      product.pricingType?.includes("Both") ||
+      product.pricingType === "both";
+
+    const isAuctionType =
+      !!product.isAuction ||
+      product.pricingType?.includes("Auction") ||
+      product.pricingType === "both";
+    const endValue: any = product.auctionEndTime;
+    const end =
+      endValue instanceof Date
+        ? endValue
+        : endValue?.toDate
+          ? endValue.toDate()
+          : endValue
+            ? new Date(endValue)
+            : null;
+    const isAuctionEnded =
+      isAuctionType &&
+      end instanceof Date &&
+      !isNaN(end.getTime()) &&
+      now.getTime() >= end.getTime();
+
+    if (isAuctionType && !isAuctionEnded) {
+      if (!hasBuyNowOption) {
+        throw new Error("auction in progress");
+      }
+
+      const buyNowRaw =
+        typeof product.price === "number"
+          ? product.price
+          : parseFloat(String(product.price || 0));
+      const buyNowPrice = Number.isFinite(buyNowRaw) ? buyNowRaw : 0;
+      const orderPriceRaw =
+        typeof orderData.itemPrice === "number"
+          ? orderData.itemPrice
+          : parseFloat(String(orderData.itemPrice || 0));
+      const orderItemPrice = Number.isFinite(orderPriceRaw) ? orderPriceRaw : 0;
+
+      if (Math.round(orderItemPrice * 100) !== Math.round(buyNowPrice * 100)) {
+        throw new Error("auction in progress");
+      }
+    }
+
+    if (isAuctionEnded) {
+      const highestBid = await getHighestBid(orderData.productId);
+      if (!highestBid || highestBid.bidderId !== orderData.buyerId) {
+        throw new Error("auction ended");
+      }
+    }
+    if (product.status !== "active") {
+      const existingOrderDoc = await getDoc(orderRef);
+      if (existingOrderDoc.exists()) {
+        return orderRef.id;
+      }
+      if (!isAuctionEnded) {
+        throw new Error("item not available");
+      }
+    }
+
+    const result = await runTransaction(db, async (tx) => {
+      const orderSnap = await tx.get(orderRef);
+      if (orderSnap.exists()) {
+        return { orderId: orderRef.id, created: false };
+      }
+
+      const orderNumber = `ORD-${now.getTime().toString(36).toUpperCase()}`;
+      tx.set(orderRef, {
+        ...orderData,
+        orderNumber,
+        createdAt: now,
+        updatedAt: now,
+      } as any);
+
+      tx.update(listingRef, {
+        status: "pending_delivery",
+        updatedAt: now,
+      } as any);
+
+      return { orderId: orderRef.id, created: true };
     });
 
-    await updateProduct(orderData.productId, {
-      status: 'pending_delivery',
-      updatedAt: now,
-    });
+    if (!result.created) {
+      return result.orderId;
+    }
 
-    const notificationBuyer: Omit<AppNotification, 'id'> = {
+    const notificationBuyer: Omit<AppNotification, "id"> = {
       userId: orderData.buyerId,
-      type: 'order_placed',
-      title: 'Order placed',
+      type: "order_placed",
+      title: "Order placed",
       message: `You have placed an order for ${orderData.productTitle}`,
       productId: orderData.productId,
-      orderId: orderRef.id,
+      orderId: result.orderId,
       productTitle: orderData.productTitle,
       productImage: orderData.productImage,
       amount: orderData.totalAmount,
@@ -1559,13 +2034,13 @@ export const createOrder = async (orderData: Omit<Order, 'id' | 'createdAt' | 'u
       createdAt: now,
     };
 
-    const notificationSeller: Omit<AppNotification, 'id'> = {
+    const notificationSeller: Omit<AppNotification, "id"> = {
       userId: orderData.sellerId,
-      type: 'order_seller',
-      title: 'Your product was purchased',
+      type: "order_seller",
+      title: "Your product was purchased",
       message: `Someone purchased ${orderData.productTitle}.`,
       productId: orderData.productId,
-      orderId: orderRef.id,
+      orderId: result.orderId,
       productTitle: orderData.productTitle,
       productImage: orderData.productImage,
       amount: orderData.totalAmount,
@@ -1575,10 +2050,15 @@ export const createOrder = async (orderData: Omit<Order, 'id' | 'createdAt' | 'u
     };
 
     const buyerNotificationPromise = (async () => {
-      const notifRef = await addDoc(collection(db, 'notifications'), notificationBuyer as any);
+      const notifRef = await addDoc(
+        collection(db, "notifications"),
+        notificationBuyer as any,
+      );
       try {
-        const buyerSnap = await getDoc(doc(db, 'users', orderData.buyerId));
-        const token = (buyerSnap.data() as any)?.expoPushToken as string | undefined;
+        const buyerSnap = await getDoc(doc(db, "users", orderData.buyerId));
+        const token = (buyerSnap.data() as any)?.expoPushToken as
+          | string
+          | undefined;
         if (token) {
           await sendPushToToken(
             token,
@@ -1590,24 +2070,29 @@ export const createOrder = async (orderData: Omit<Order, 'id' | 'createdAt' | 'u
               orderId: notificationBuyer.orderId,
               notificationId: notifRef.id,
               imageUrl: notificationBuyer.productImage,
-            }
+            },
           );
         } else {
           const imageUrl = notificationBuyer.productImage as string | undefined;
           await notifyProductWithImage(
             notificationBuyer.title,
             notificationBuyer.message,
-            imageUrl
+            imageUrl,
           );
         }
       } catch { }
     })();
 
     const sellerNotificationPromise = (async () => {
-      const notifRef = await addDoc(collection(db, 'notifications'), notificationSeller as any);
+      const notifRef = await addDoc(
+        collection(db, "notifications"),
+        notificationSeller as any,
+      );
       try {
-        const sellerSnap = await getDoc(doc(db, 'users', orderData.sellerId));
-        const token = (sellerSnap.data() as any)?.expoPushToken as string | undefined;
+        const sellerSnap = await getDoc(doc(db, "users", orderData.sellerId));
+        const token = (sellerSnap.data() as any)?.expoPushToken as
+          | string
+          | undefined;
         if (token) {
           await sendPushToToken(
             token,
@@ -1619,14 +2104,16 @@ export const createOrder = async (orderData: Omit<Order, 'id' | 'createdAt' | 'u
               orderId: notificationSeller.orderId,
               notificationId: notifRef.id,
               imageUrl: notificationSeller.productImage,
-            }
+            },
           );
         } else {
-          const imageUrl = notificationSeller.productImage as string | undefined;
+          const imageUrl = notificationSeller.productImage as
+            | string
+            | undefined;
           await notifyProductWithImage(
             notificationSeller.title,
             notificationSeller.message,
-            imageUrl
+            imageUrl,
           );
         }
       } catch { }
@@ -1634,16 +2121,16 @@ export const createOrder = async (orderData: Omit<Order, 'id' | 'createdAt' | 'u
 
     await Promise.all([buyerNotificationPromise, sellerNotificationPromise]);
 
-    return orderRef.id;
+    return result.orderId;
   } catch (error) {
-    console.error('Error creating order:', error);
+    console.error("Error creating order:", error);
     throw error;
   }
 };
 
 export const getOrder = async (orderId: string): Promise<Order | null> => {
   try {
-    const orderDoc = await getDoc(doc(db, 'orders', orderId));
+    const orderDoc = await getDoc(doc(db, "orders", orderId));
 
     if (orderDoc.exists()) {
       return { id: orderDoc.id, ...orderDoc.data() } as Order;
@@ -1651,31 +2138,44 @@ export const getOrder = async (orderId: string): Promise<Order | null> => {
 
     return null;
   } catch (error) {
-    console.error('Error getting order:', error);
+    console.error("Error getting order:", error);
     throw error;
   }
+};
+
+export const subscribeOrder = (
+  orderId: string,
+  onUpdate: (order: Order | null) => void,
+) => {
+  return onSnapshot(doc(db, "orders", orderId), (snap) => {
+    if (!snap.exists()) return onUpdate(null);
+    onUpdate({ id: snap.id, ...(snap.data() as any) } as Order);
+  });
 };
 
 export const updateOrder = async (orderId: string, updates: Partial<Order>) => {
   try {
     const now = new Date();
-    await updateDoc(doc(db, 'orders', orderId), {
+    await updateDoc(doc(db, "orders", orderId), {
       ...updates,
       updatedAt: now,
     });
   } catch (error) {
-    console.error('Error updating order:', error);
+    console.error("Error updating order:", error);
     throw error;
   }
 };
 
-export const getUserOrders = async (userId: string, type: 'buyer' | 'seller' = 'buyer'): Promise<Order[]> => {
+export const getUserOrders = async (
+  userId: string,
+  type: "buyer" | "seller" = "buyer",
+): Promise<Order[]> => {
   try {
-    const field = type === 'buyer' ? 'buyerId' : 'sellerId';
+    const field = type === "buyer" ? "buyerId" : "sellerId";
     const q = query(
-      collection(db, 'orders'),
-      where(field, '==', userId),
-      orderBy('createdAt', 'desc')
+      collection(db, "orders"),
+      where(field, "==", userId),
+      orderBy("createdAt", "desc"),
     );
 
     const querySnapshot = await getDocs(q);
@@ -1688,7 +2188,7 @@ export const getUserOrders = async (userId: string, type: 'buyer' | 'seller' = '
 
     return orders;
   } catch (error) {
-    console.error('Error getting user orders:', error);
+    console.error("Error getting user orders:", error);
     throw error;
   }
 };
@@ -1696,9 +2196,9 @@ export const getUserOrders = async (userId: string, type: 'buyer' | 'seller' = '
 export const getProductOrders = async (productId: string): Promise<Order[]> => {
   try {
     const q = query(
-      collection(db, 'orders'),
-      where('productId', '==', productId),
-      orderBy('createdAt', 'desc')
+      collection(db, "orders"),
+      where("productId", "==", productId),
+      orderBy("createdAt", "desc"),
     );
 
     const querySnapshot = await getDocs(q);
@@ -1711,23 +2211,26 @@ export const getProductOrders = async (productId: string): Promise<Order[]> => {
 
     return orders;
   } catch (error) {
-    console.error('Error getting product orders:', error);
+    console.error("Error getting product orders:", error);
     throw error;
   }
 };
 
 export const subscribeUserNotifications = (
   userId: string,
-  onUpdate: (notifications: AppNotification[]) => void
+  onUpdate: (notifications: AppNotification[]) => void,
 ) => {
   const q = query(
-    collection(db, 'notifications'),
-    where('userId', '==', userId)
+    collection(db, "notifications"),
+    where("userId", "==", userId),
   );
   return onSnapshot(q, (snapshot) => {
     const items: AppNotification[] = [];
     snapshot.forEach((docSnap) => {
-      items.push({ id: docSnap.id, ...(docSnap.data() as any) } as AppNotification);
+      items.push({
+        id: docSnap.id,
+        ...(docSnap.data() as any),
+      } as AppNotification);
     });
     items.sort((a, b) => {
       const aValue: any = a.createdAt;
@@ -1742,10 +2245,10 @@ export const subscribeUserNotifications = (
 
 export const markNotificationAsRead = async (notificationId: string) => {
   try {
-    const ref = doc(db, 'notifications', notificationId);
+    const ref = doc(db, "notifications", notificationId);
     await updateDoc(ref, { isRead: true });
   } catch (error) {
-    console.error('Error marking notification as read:', error);
+    console.error("Error marking notification as read:", error);
     throw error;
   }
 };
@@ -1753,9 +2256,9 @@ export const markNotificationAsRead = async (notificationId: string) => {
 export const markAllNotificationsAsRead = async (userId: string) => {
   try {
     const q = query(
-      collection(db, 'notifications'),
-      where('userId', '==', userId),
-      where('isRead', '==', false)
+      collection(db, "notifications"),
+      where("userId", "==", userId),
+      where("isRead", "==", false),
     );
     const snapshot = await getDocs(q);
     const updates: Promise<void>[] = [];
@@ -1766,20 +2269,22 @@ export const markAllNotificationsAsRead = async (userId: string) => {
       await Promise.all(updates);
     }
   } catch (error) {
-    console.error('Error marking all notifications as read:', error);
+    console.error("Error marking all notifications as read:", error);
     throw error;
   }
 };
 
-export const getNotification = async (notificationId: string): Promise<AppNotification | null> => {
+export const getNotification = async (
+  notificationId: string,
+): Promise<AppNotification | null> => {
   try {
-    const snap = await getDoc(doc(db, 'notifications', notificationId));
+    const snap = await getDoc(doc(db, "notifications", notificationId));
     if (!snap.exists()) {
       return null;
     }
     return { id: snap.id, ...(snap.data() as any) } as AppNotification;
   } catch (error) {
-    console.error('Error getting notification:', error);
+    console.error("Error getting notification:", error);
     throw error;
   }
 };
@@ -1787,10 +2292,10 @@ export const getNotification = async (notificationId: string): Promise<AppNotifi
 export const getHighestBid = async (productId: string): Promise<Bid | null> => {
   try {
     const q = query(
-      collection(db, 'bids'),
-      where('productId', '==', productId),
-      where('isHighest', '==', true),
-      limit(1)
+      collection(db, "bids"),
+      where("productId", "==", productId),
+      where("isHighest", "==", true),
+      limit(1),
     );
 
     const querySnapshot = await getDocs(q);
@@ -1802,7 +2307,7 @@ export const getHighestBid = async (productId: string): Promise<Bid | null> => {
     const doc = querySnapshot.docs[0];
     return { id: doc.id, ...doc.data() } as Bid;
   } catch (error) {
-    console.error('Error getting highest bid:', error);
+    console.error("Error getting highest bid:", error);
     throw error;
   }
 };
@@ -1810,44 +2315,46 @@ export const getHighestBid = async (productId: string): Promise<Bid | null> => {
 // Test function to create sample data for testing
 export const createSampleData = async (userId: string) => {
   try {
-    console.log('🧪 Creating sample data for testing...');
+    console.log("🧪 Creating sample data for testing...");
 
     // Create a sample product
     const productData = {
-      title: 'Test iPhone 14',
-      description: 'Sample iPhone for testing bid functionality',
+      title: "Test iPhone 14",
+      description: "Sample iPhone for testing bid functionality",
       price: 999,
-      category: 'Electronics',
-      condition: 'new' as const,
-      images: ['https://firebasestorage.googleapis.com/v0/b/bazaar-b558d.firebasestorage.app/o/listings%2F1759197624647?alt=media&token=01be4cb4-625d-46b4-b262-4f4d56bb24a1'],
-      location: 'Test City, TC',
+      category: "Electronics",
+      condition: "new" as const,
+      images: [
+        "https://firebasestorage.googleapis.com/v0/b/bazaar-b558d.firebasestorage.app/o/listings%2F1759197624647?alt=media&token=01be4cb4-625d-46b4-b262-4f4d56bb24a1",
+      ],
+      location: "Test City, TC",
       userId: userId,
       sellerId: userId, // Required field
-      status: 'active', // Required field
+      status: "active", // Required field
       isActive: true,
       isSold: false,
       views: 0,
-      favorites: 0
+      favorites: 0,
     };
 
     const productId = await createProduct(productData);
-    console.log('✅ Sample product created:', productId);
+    console.log("✅ Sample product created:", productId);
 
     // Create a sample bid on the product
     const bidData = {
       productId: productId,
       bidderId: userId,
-      bidderName: 'Test User',
-      bidderAvatar: '',
-      amount: 850
+      bidderName: "Test User",
+      bidderAvatar: "",
+      amount: 850,
     };
 
     await placeBid(bidData);
-    console.log('✅ Sample bid placed on product:', productId);
+    console.log("✅ Sample bid placed on product:", productId);
 
     return { productId, bidAmount: bidData.amount };
   } catch (error) {
-    console.error('❌ Error creating sample data:', error);
+    console.error("❌ Error creating sample data:", error);
     throw error;
   }
 };

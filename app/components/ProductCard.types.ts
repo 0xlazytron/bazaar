@@ -1,6 +1,10 @@
-import { ImageSourcePropType } from 'react-native';
+import { ImageSourcePropType } from "react-native";
 
-export type ProductType = 'Featured' | 'Ending Soon' | 'Newly Listed' | 'Popular';
+export type ProductType =
+  | "Featured"
+  | "Ending Soon"
+  | "Newly Listed"
+  | "Popular";
 
 export interface ProductCardProps {
   id: string;
@@ -8,9 +12,11 @@ export interface ProductCardProps {
   title: string;
   description: string;
   currentBid: number;
+  buyNowPrice?: number;
   timeLeft: string;
   bids: number;
   type?: ProductType;
+  onPress?: () => void;
 }
 
-export type ProductCondition = 'New' | 'Used';
+export type ProductCondition = "New" | "Used";

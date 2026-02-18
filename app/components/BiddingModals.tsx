@@ -414,7 +414,11 @@ export function BiddingModals({
     >
       <View style={styles.centeredView}>
         <View style={styles.modalView}>
-          <TouchableOpacity style={styles.closeButton} onPress={onCloseConfirmPurchase}>
+          <TouchableOpacity
+            style={styles.closeButton}
+            onPress={placingBid ? undefined : onCloseConfirmPurchase}
+            disabled={placingBid}
+          >
             <Image
               source={require('@/assets/images/icons/close.png')}
               style={styles.closeIcon}
@@ -470,17 +474,31 @@ export function BiddingModals({
           </View>
 
           <View style={styles.modalFooter}>
-            <TouchableOpacity style={styles.cancelButton} onPress={onCloseConfirmPurchase}>
+            <TouchableOpacity
+              style={[styles.cancelButton, placingBid && styles.actionButtonDisabled]}
+              onPress={placingBid ? undefined : onCloseConfirmPurchase}
+              disabled={placingBid}
+            >
               <ThemedText style={styles.cancelButtonText}>Back</ThemedText>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.actionButton} onPress={onConfirmPurchase}>
+            <TouchableOpacity
+              style={[styles.actionButton, placingBid && styles.actionButtonDisabled]}
+              onPress={placingBid ? undefined : onConfirmPurchase}
+              disabled={placingBid}
+            >
               <View style={styles.actionButtonRow}>
-                <Image
-                  source={require('@/assets/images/icons/check.png')}
-                  style={styles.actionButtonIcon}
-                />
-                <ThemedText style={styles.actionButtonText}>Complete Purchase</ThemedText>
+                {placingBid ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Image
+                    source={require('@/assets/images/icons/check.png')}
+                    style={styles.actionButtonIcon}
+                  />
+                )}
+                <ThemedText style={styles.actionButtonText}>
+                  {placingBid ? 'Completing...' : 'Complete Purchase'}
+                </ThemedText>
               </View>
             </TouchableOpacity>
           </View>

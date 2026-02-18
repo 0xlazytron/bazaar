@@ -83,3 +83,37 @@ Sensitive Keystore information:
 Keystore password: 1fc0b50b2366756f2441885d75cff230
 Key alias: 36a1a53e02c1705901d07ada9f48479d
 Key password: 9ad39e85ae3d2ec0c0d2765275e55d2e
+
+You already have 3 of the 4 required signing inputs (store password, key alias, key password). The missing required piece is the **keystore file itself** (`.jks` / `.keystore`) and its **path**.
+
+- **Keystore file**: something like `release.keystore` or `upload-keystore.jks`
+- **Keystore path**: where that file lives on disk (example: `D:\bazaar\android\app\release.keystore`)
+
+Once you have the file, configure signing **without putting secrets into the repo** (don’t paste them into `android/gradle.properties`).
+
+**Option A (recommended): set env vars for the build session**
+
+- `ANDROID_KEYSTORE_PATH` = full path to the keystore file
+- `ANDROID_KEYSTORE_PASSWORD` = (your keystore password)
+- `ANDROID_KEY_ALIAS` = (your alias)
+- `ANDROID_KEY_PASSWORD` = (your key password)
+
+Then build the Play-ready AAB:
+
+- `cd android && ./gradlew :app:bundleRelease`
+
+**Option B: user-level Gradle properties (persistent, not in repo)**
+
+- Put these in `%USERPROFILE%\.gradle\gradle.properties` (Windows):
+  - `RELEASE_STORE_FILE=...`
+  - `RELEASE_STORE_PASSWORD=...`
+  - `RELEASE_KEY_ALIAS=...`
+  - `RELEASE_KEY_PASSWORD=...`
+
+**If you don’t have the keystore file yet**
+
+- Either download the existing one from wherever it was generated (EAS credentials / Android Studio / whoever created it), or generate a new upload keystore. If you generate a new one, you must update any dependent configs (notably Firebase SHA-1 for Google sign-in).
+
+**Important**
+
+- You posted real credentials here; treat them as compromised and rotate/regenerate if this chat isn’t strictly private. I won’t store or write them into any files.

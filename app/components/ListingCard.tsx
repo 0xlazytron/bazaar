@@ -1,8 +1,22 @@
-import React from 'react';
-import { Image, ImageSourcePropType, StyleSheet, TouchableOpacity, View } from 'react-native';
-import { router } from 'expo-router';
-import { ImageWithLoader } from './ImageWithLoader';
-import { ThemedText } from './ThemedText';
+import { router } from "expo-router";
+import React, { useEffect, useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  Image,
+  ImageSourcePropType,
+  StyleSheet,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { getCurrentUser } from "../../lib/auth";
+import {
+  addToFavorites,
+  isProductFavorited,
+  removeFromFavorites,
+} from "../../lib/firestore";
+import { ImageWithLoader } from "./ImageWithLoader";
+import { ThemedText } from "./ThemedText";
 
 interface Props {
   id?: string;
@@ -16,6 +30,9 @@ interface Props {
   isNewListing?: boolean;
   onPress?: () => void;
   onLongPress?: () => void;
+  showMarkSoldButton?: boolean;
+  markSoldLoading?: boolean;
+  onMarkSoldPress?: () => void;
 }
 
 export const ListingCard = ({
@@ -29,8 +46,40 @@ export const ListingCard = ({
   condition,
   isNewListing,
   onPress,
-  onLongPress
+  onLongPress,
+  showMarkSoldButton,
+  markSoldLoading,
+  onMarkSoldPress,
 }: Props) => {
+  const [isFavorited, setIsFavorited] = useState(false);
+  const [favoriteBusy, setFavoriteBusy] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    const user = getCurrentUser();
+    const listingId = typeof id === "string" ? id : "";
+    if (!user || !listingId) {
+      setIsFavorited(false);
+      return () => {
+        active = false;
+      };
+    }
+
+    isProductFavorited(user.uid, listingId)
+      .then((v) => {
+        if (!active) return;
+        setIsFavorited(v);
+      })
+      .catch(() => {
+        if (!active) return;
+        setIsFavorited(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [id]);
+
   const handlePress = () => {
     if (onPress) {
       onPress();
@@ -41,13 +90,38 @@ export const ListingCard = ({
     }
   };
 
+  const handleToggleFavorite = async () => {
+    const user = getCurrentUser();
+    const listingId = typeof id === "string" ? id : "";
+    if (!listingId) return;
+    if (!user) {
+      Alert.alert("Login required", "Please log in to add favorites.");
+      return;
+    }
+    if (favoriteBusy) return;
+    const next = !isFavorited;
+    setIsFavorited(next);
+    try {
+      setFavoriteBusy(true);
+      if (next) {
+        await addToFavorites(user.uid, listingId);
+      } else {
+        await removeFromFavorites(user.uid, listingId);
+      }
+    } catch {
+      setIsFavorited(!next);
+      Alert.alert("Error", "Failed to update favorites");
+    } finally {
+      setFavoriteBusy(false);
+    }
+  };
+
   return (
     <TouchableOpacity
       style={styles.container}
       onPress={handlePress}
       onLongPress={onLongPress}
     >
-      {/* Product Image */}
       <View style={styles.imageContainer}>
         <ImageWithLoader
           source={image}
@@ -56,37 +130,68 @@ export const ListingCard = ({
           loaderSize="small"
           debugLabel={`Listing Card: ${title}`}
         />
-        <View style={[styles.badge, { backgroundColor: condition === 'New' ? '#DBEAFE' : '#FEF3C7' }]}>
-          <ThemedText style={[styles.badgeText, { color: condition === 'New' ? '#1E40AF' : '#92400E' }]}>
+        <View
+          style={[
+            styles.badge,
+            { backgroundColor: condition === "New" ? "#DBEAFE" : "#FEF3C7" },
+          ]}
+        >
+          <ThemedText
+            style={[
+              styles.badgeText,
+              { color: condition === "New" ? "#1E40AF" : "#92400E" },
+            ]}
+          >
             {condition}
           </ThemedText>
         </View>
-        <TouchableOpacity style={styles.favoriteButton}>
-          <Image
-            source={require('../../assets/images/icons/heart.png')}
-            style={styles.favoriteIcon}
-          />
+        <TouchableOpacity
+          style={styles.favoriteButton}
+          onPress={(e: any) => {
+            e?.stopPropagation?.();
+            handleToggleFavorite();
+          }}
+          disabled={favoriteBusy}
+        >
+          {favoriteBusy ? (
+            <ActivityIndicator size="small" color="#16A34A" />
+          ) : (
+            <Image
+              source={
+                isFavorited
+                  ? require("../../assets/images/icons/favorite-indigo.png")
+                  : require("../../assets/images/icons/heart.png")
+              }
+              style={
+                isFavorited ? styles.favoriteIconSelected : styles.favoriteIcon
+              }
+            />
+          )}
         </TouchableOpacity>
       </View>
 
-      {/* Product Info */}
       <View style={styles.infoContainer}>
         {isNewListing && (
           <View style={styles.categoryBadge}>
             <ThemedText style={styles.categoryText}>New Listing</ThemedText>
           </View>
         )}
-        <ThemedText style={styles.title} numberOfLines={2}>{title}</ThemedText>
+        <ThemedText style={styles.title} numberOfLines={2}>
+          {title}
+        </ThemedText>
 
-        {/* Pricing */}
         <View style={styles.pricingContainer}>
           <View>
             <ThemedText style={styles.priceLabel}>Current Bid</ThemedText>
-            <ThemedText style={styles.currentBid}>Rs {currentBid.toLocaleString()}</ThemedText>
+            <ThemedText style={styles.currentBid}>
+              Rs {currentBid.toLocaleString()}
+            </ThemedText>
           </View>
           <View>
             <ThemedText style={styles.priceLabel}>Buy Now</ThemedText>
-            <ThemedText style={styles.buyNowPrice}>Rs {buyNowPrice.toLocaleString()}</ThemedText>
+            <ThemedText style={styles.buyNowPrice}>
+              Rs {buyNowPrice.toLocaleString()}
+            </ThemedText>
           </View>
         </View>
 
@@ -106,6 +211,30 @@ export const ListingCard = ({
             <ThemedText style={styles.statText}>{bidsCount} bids</ThemedText>
           </View>
         </View>
+
+        {showMarkSoldButton && (
+          <TouchableOpacity
+            style={[
+              styles.markSoldButton,
+              markSoldLoading && styles.markSoldButtonDisabled,
+            ]}
+            onPress={(e: any) => {
+              e?.stopPropagation?.();
+              onMarkSoldPress?.();
+            }}
+            disabled={!!markSoldLoading}
+          >
+            <View style={styles.markSoldButtonRow}>
+              <Image
+                source={require("../../assets/images/icons/check.png")}
+                style={styles.markSoldIcon}
+              />
+              <ThemedText style={styles.markSoldButtonText}>
+                {markSoldLoading ? "Updating…" : "Mark as Sold"}
+              </ThemedText>
+            </View>
+          </TouchableOpacity>
+        )}
       </View>
     </TouchableOpacity>
   );
@@ -152,12 +281,15 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.8)',
     justifyContent: 'center',
     alignItems: 'center',
-    backdropFilter: 'blur(8px)',
   },
   favoriteIcon: {
     width: 16,
     height: 16,
     tintColor: '#6B7280',
+  },
+  favoriteIconSelected: {
+    width: 16,
+    height: 16,
   },
   infoContainer: {
     padding: 16,
@@ -216,5 +348,31 @@ const styles = StyleSheet.create({
   statText: {
     fontSize: 14,
     color: '#64748B',
+  },
+  markSoldButton: {
+    marginTop: 12,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: "#16A34A",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  markSoldButtonDisabled: {
+    opacity: 0.7,
+  },
+  markSoldButtonRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  markSoldIcon: {
+    width: 16,
+    height: 16,
+    tintColor: "#FFFFFF",
+  },
+  markSoldButtonText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#FFFFFF",
   },
 });

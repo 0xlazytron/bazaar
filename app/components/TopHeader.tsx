@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { Image, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { getCurrentUser, subscribeUserProfile, type UserProfile } from '../../lib/auth';
 import { subscribeUserNotifications } from '../../lib/firestore';
+import { ImageWithLoader } from './ImageWithLoader';
 import { ThemedText } from './ThemedText';
 
 export const TopHeader = ({ transparent = false }) => {
@@ -51,9 +52,11 @@ export const TopHeader = ({ transparent = false }) => {
         <View style={styles.solidBackground} />
       )}
       <View style={styles.userInfo}>
-        <Image
+        <ImageWithLoader
           source={avatarSource}
           style={styles.avatar}
+          loaderSize="small"
+          debugLabel="TopHeader Avatar"
         />
         <View>
           <ThemedText style={[styles.welcomeText, transparent && styles.lightText]}>Welcome,</ThemedText>
@@ -135,6 +138,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
+    overflow: 'hidden',
   },
   welcomeText: {
     fontSize: 14,
