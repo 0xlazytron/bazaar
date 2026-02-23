@@ -203,7 +203,8 @@ export default function BottomNavigation() {
     return basePath === tabName;
   };
 
-  const extraBottom = Platform.OS === 'ios' ? Math.max(insets.bottom - 8, 0) : 0;
+  const bottomInset = Math.max(insets.bottom, 0);
+  const extraBottom = Platform.OS === 'ios' ? Math.max(bottomInset - 8, 0) : Math.max(bottomInset, 8);
 
   return (
     <View
