@@ -15,7 +15,7 @@ import { getCurrentUser } from "../../../lib/auth";
 import { getOrder, updateOrder, type Order } from "../../../lib/firestore";
 import { uploadImage } from "../../../lib/storage";
 
-const TaxProofScreen = () => {
+const FeeProofScreen = () => {
   const {
     id,
     returnTo,
@@ -68,7 +68,7 @@ const TaxProofScreen = () => {
     if (status !== "granted") {
       Alert.alert(
         "Permission needed",
-        "Please grant access to your photos to upload tax proof.",
+        "Please grant access to your photos to upload fee proof.",
       );
       return;
     }
@@ -89,7 +89,7 @@ const TaxProofScreen = () => {
       setUploading(true);
       const response = await fetch(asset.uri);
       const blob = await response.blob();
-      const path = `taxProof/${user.uid}/${id}_${Date.now()}`;
+      const path = `feeProof/${user.uid}/${id}_${Date.now()}`;
       const url = await uploadImage(blob, path);
 
       await updateOrder(id, {
@@ -97,10 +97,10 @@ const TaxProofScreen = () => {
       });
 
       setOrder((prev) => (prev ? { ...prev, taxProof: url } : prev));
-      Alert.alert("Success", "Tax proof uploaded successfully.");
+      Alert.alert("Success", "Fee proof uploaded successfully.");
     } catch (error) {
-      console.error("Error uploading tax proof:", error);
-      Alert.alert("Error", "Failed to upload tax proof. Please try again.");
+      console.error("Error uploading fee proof:", error);
+      Alert.alert("Error", "Failed to upload fee proof. Please try again.");
     } finally {
       setUploading(false);
     }
@@ -130,7 +130,7 @@ const TaxProofScreen = () => {
       return (
         <View style={styles.loadingContainer}>
           <Text style={styles.errorText}>
-            Tax payment is only available for your sold orders.
+            Fee payment is only available for your sold orders.
           </Text>
         </View>
       );
@@ -139,16 +139,34 @@ const TaxProofScreen = () => {
     return (
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.card}>
-          <Text style={styles.title}>Tax Proof</Text>
+          <Text style={styles.title}>Fee Proof</Text>
           <Text style={styles.subtitle}>
             Order #{order.orderNumber || (order.id || "").slice(-8)}
           </Text>
           <Text style={styles.amountText}>
-            Platform tax: Rs{" "}
+            Platform fee: Rs{" "}
             {(order.productTax ?? 0).toLocaleString("en-IN", {
               minimumFractionDigits: 2,
             })}
           </Text>
+          <View style={styles.paymentCard}>
+            <Text style={styles.paymentTitle}>
+              Please pay the platform fees to Bergland Ltd
+            </Text>
+            <View style={styles.paymentRows}>
+              <View style={styles.paymentRow}>
+                <Text style={styles.paymentLabel}>Juice</Text>
+                <Text style={styles.paymentValue}>000454394640</Text>
+              </View>
+              <View style={styles.paymentRow}>
+                <Text style={styles.paymentLabel}>MCB Account number</Text>
+                <Text style={styles.paymentValue}>000454394640</Text>
+              </View>
+            </View>
+            <Text style={styles.paymentFootnote}>
+              Add your order # as reference.
+            </Text>
+          </View>
 
           {order.taxProof ? (
             <View style={styles.imageWrapper}>
@@ -157,7 +175,7 @@ const TaxProofScreen = () => {
           ) : (
             <View style={styles.placeholder}>
               <Text style={styles.placeholderText}>
-                No tax proof uploaded yet.
+                No fee proof uploaded yet.
               </Text>
             </View>
           )}
@@ -174,7 +192,7 @@ const TaxProofScreen = () => {
               <ActivityIndicator size="small" color="#FFFFFF" />
             ) : (
               <Text style={styles.uploadButtonText}>
-                {order.taxProof ? "Replace Tax Proof" : "Upload Tax Proof"}
+                {order.taxProof ? "Replace Fee Proof" : "Upload Fee Proof"}
               </Text>
             )}
           </TouchableOpacity>
@@ -182,7 +200,7 @@ const TaxProofScreen = () => {
           {order.taxPaid && (
             <View style={styles.statusBadge}>
               <Text style={styles.statusBadgeText}>
-                Tax marked as paid by admin
+                Fee marked as paid by admin
               </Text>
             </View>
           )}
@@ -239,7 +257,7 @@ const TaxProofScreen = () => {
         >
           <Text style={styles.backText}>Back</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Tax Proof</Text>
+        <Text style={styles.headerTitle}>Fee Proof</Text>
         <View style={styles.headerSpacer} />
       </View>
       {renderContent()}
@@ -247,7 +265,7 @@ const TaxProofScreen = () => {
   );
 };
 
-export default TaxProofScreen;
+export default FeeProofScreen;
 
 const styles = StyleSheet.create({
   container: {
@@ -308,6 +326,45 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     color: "#16A34A",
     marginBottom: 16,
+  },
+  paymentCard: {
+    borderRadius: 12,
+    padding: 12,
+    backgroundColor: "#ECFDF5",
+    borderWidth: 1,
+    borderColor: "#BBF7D0",
+    marginBottom: 16,
+  },
+  paymentTitle: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#065F46",
+    marginBottom: 10,
+  },
+  paymentRows: {
+    gap: 8,
+  },
+  paymentRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  paymentLabel: {
+    fontSize: 13,
+    color: "#047857",
+    flex: 1,
+  },
+  paymentValue: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#064E3B",
+    letterSpacing: 0.3,
+  },
+  paymentFootnote: {
+    fontSize: 12,
+    color: "#065F46",
+    marginTop: 10,
   },
   imageWrapper: {
     borderRadius: 12,

@@ -20,6 +20,7 @@ yarn-error.*
 .env*.local
 *.tsbuildinfo
 app-example
+Appstore/
 
 # Local build outputs and caches
 android/app/build/

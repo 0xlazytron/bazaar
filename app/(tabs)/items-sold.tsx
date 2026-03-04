@@ -143,7 +143,7 @@ export default function ItemsSoldScreen() {
         typeof order.itemPrice === "number"
           ? order.itemPrice
           : parseFloat(String(order.itemPrice || 0));
-      const productTax = parseFloat((taxBase * 0.0515).toFixed(2));
+      const productTax = parseFloat((taxBase * 0.0575).toFixed(2));
 
       setOrders((prev) =>
         prev.map((o) =>
@@ -381,7 +381,7 @@ export default function ItemsSoldScreen() {
                           } as any)
                         : undefined
                     }
-                    taxLabel="Tax proof"
+                    taxLabel="Fee proof"
                     taxIcon={require("@/assets/images/icons/star-yellow.png")}
                   />
                 );

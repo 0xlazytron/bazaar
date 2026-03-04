@@ -192,7 +192,7 @@ export default function OrderDetailsScreen() {
         typeof order.itemPrice === "number"
           ? order.itemPrice
           : parseFloat(String(order.itemPrice || 0));
-      const productTax = parseFloat((taxBase * 0.0515).toFixed(2));
+      const productTax = parseFloat((taxBase * 0.0575).toFixed(2));
 
       setOrder((prev) =>
         prev
@@ -387,7 +387,7 @@ export default function OrderDetailsScreen() {
                   style={styles.actionIcon}
                 />
                 <ThemedText style={styles.actionText} numberOfLines={1}>
-                  Tax proof
+                  Fee proof
                 </ThemedText>
               </TouchableOpacity>
             ) : null}

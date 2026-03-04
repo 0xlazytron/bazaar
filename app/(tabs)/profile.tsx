@@ -566,8 +566,8 @@ export default function ProfileScreen() {
     if (value === "bought") return "Bought";
     if (value === "sold") return "Sold";
     if (value === "pending_delivery") return "Pending delivery";
-    if (value === "tax_unpaid") return "Tax unpaid";
-    if (value === "tax_paid") return "Tax paid";
+    if (value === "tax_unpaid") return "Fee unpaid";
+    if (value === "tax_paid") return "Fee paid";
     if (value === "delivered") return "Delivered";
     return "All";
   };
@@ -914,7 +914,7 @@ export default function ProfileScreen() {
                                             ),
                                           );
                                       const productTax = parseFloat(
-                                        (taxBase * 0.0515).toFixed(2),
+                                        (taxBase * 0.0575).toFixed(2),
                                       );
 
                                       setUserOrders((prev) =>
@@ -1241,7 +1241,7 @@ export default function ProfileScreen() {
                                   } as any)
                                 : undefined
                             }
-                            taxLabel="Tax proof"
+                            taxLabel="Fee proof"
                             taxIcon={require("@/assets/images/icons/star-yellow.png")}
                           />
                         </View>
@@ -1273,9 +1273,7 @@ export default function ProfileScreen() {
                   source={require("@/assets/images/icons/star-yellow.png")}
                   style={styles.bidHistoryIcon}
                 />
-                <ThemedText style={styles.sectionTitle}>
-                  Tax Management
-                </ThemedText>
+                <ThemedText style={styles.sectionTitle}>Fees</ThemedText>
               </View>
             </View>
             <View style={styles.taxFiltersRow}>
@@ -1603,7 +1601,7 @@ export default function ProfileScreen() {
                                 } as any)
                               : undefined
                           }
-                          taxLabel="Tax proof"
+                          taxLabel="Fee proof"
                           taxIcon={require("@/assets/images/icons/star-yellow.png")}
                         />
                       </View>
@@ -1629,10 +1627,10 @@ export default function ProfileScreen() {
               ) : (
                 <View style={styles.emptyState}>
                   <ThemedText style={styles.emptyStateText}>
-                    No tax items found
+                    No fee items found
                   </ThemedText>
                   <ThemedText style={styles.emptyStateSubtext}>
-                    Delivered orders with tax will show up here
+                    Delivered orders with fees will show up here
                   </ThemedText>
                 </View>
               );
@@ -2101,7 +2099,7 @@ export default function ProfileScreen() {
                   activeTab === "tax" && styles.activeTabText,
                 ]}
               >
-                Tax
+                Fees
               </ThemedText>
             </TouchableOpacity>
             <TouchableOpacity

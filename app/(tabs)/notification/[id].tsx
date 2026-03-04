@@ -64,7 +64,10 @@ const NotificationDetailScreen = () => {
       return;
     }
     if (notification.type === 'tax') {
-      router.push({ pathname: '/(tabs)/profile', params: { activeTab: 'listings' } });
+      router.push({
+        pathname: '/(tabs)/profile',
+        params: { activeTab: 'tax', scrollTo: 'tax_management' },
+      });
       return;
     }
   };
@@ -78,7 +81,7 @@ const NotificationDetailScreen = () => {
     )
       return 'View auction';
     if (notification.type === 'order_placed' || notification.type === 'order_seller') return 'View my orders';
-    if (notification.type === 'tax') return 'View tax details';
+    if (notification.type === 'tax') return 'View fee details';
     return 'Close';
   };
 

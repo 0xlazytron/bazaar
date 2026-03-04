@@ -288,7 +288,7 @@ export default function NewListingStep3Screen() {
 
         <KeyboardAvoidingView
           style={styles.content}
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
           keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
         >
           <ScrollView
@@ -469,7 +469,7 @@ export default function NewListingStep3Screen() {
                 <View style={styles.noticeContent}>
                   <Text style={styles.noticeTitle}>Platform fees apply</Text>
                   <Text style={styles.noticeText}>
-                    The platform will charge you 5.15% of{"\n"}
+                    The platform will charge you 5.75% of{"\n"}
                     the final sale price. If your item does{"\n"}
                     not sell, no charges will be incurred.
                   </Text>
@@ -572,7 +572,7 @@ export default function NewListingStep3Screen() {
                 <Text style={styles.termsModalText}>
                   The platform will charge a fee of{" "}
                   <Text style={styles.boldText}>
-                    5.15% of the final{"\n"}
+                    5.75% of the final{"\n"}
                     sale price
                   </Text>{" "}
                   if your item sells. If your item does not{"\n"}

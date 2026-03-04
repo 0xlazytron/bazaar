@@ -15,12 +15,14 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.bazaar.app",
+      "bundleIdentifier": "com.bazaar.mu",
+      "googleServicesFile": "./ios/GoogleService-Info.plist",
       "infoPlist": {
         "NSCameraUsageDescription": "Camera access is required for video calls",
         "NSMicrophoneUsageDescription": "Microphone access is required for voice and video calls",
         "NSPhotoLibraryAddUsageDescription": "Photo access is required to save images to your device",
-        "NSPhotoLibraryUsageDescription": "Photo access is required to save images to your device"
+        "NSPhotoLibraryUsageDescription": "Photo access is required to save images to your device",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {

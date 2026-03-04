@@ -170,7 +170,7 @@ export function OrderItem({
                 <View style={styles.taxIndicator}>
                   <View style={styles.taxDot} />
                   <ThemedText style={styles.taxIndicatorText}>
-                    Tax unpaid
+                    Fee unpaid
                   </ThemedText>
                 </View>
               )}
@@ -233,7 +233,7 @@ export function OrderItem({
             <TouchableOpacity style={actionButtonStyle} onPress={onTaxPress}>
               {taxIcon && <Image source={taxIcon} style={styles.actionIcon} />}
               <ThemedText style={styles.actionText} numberOfLines={1}>
-                {taxLabel || "Tax proof"}
+                {taxLabel || "Fee proof"}
               </ThemedText>
             </TouchableOpacity>
           )}

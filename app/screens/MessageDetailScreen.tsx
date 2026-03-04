@@ -468,7 +468,7 @@ const MessageDetailScreen: React.FC<MessageDetailScreenProps> = () => {
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
       keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
     >
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />

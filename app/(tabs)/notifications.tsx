@@ -86,7 +86,7 @@ export default function NotificationsScreen() {
     if (notification.type === 'auction_bid') return 'New bid on your listing';
     if (notification.type === 'order_placed') return 'Order placed';
     if (notification.type === 'order_seller') return 'Your product was purchased';
-    if (notification.type === 'tax') return 'Important tax notification';
+    if (notification.type === 'tax') return 'Important fee notification';
     return 'Notification';
   };
 
