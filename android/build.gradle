@@ -21,6 +21,14 @@ def reactNativeAndroidDir = new File(
 )
 
 allprojects {
+  configurations.all {
+    resolutionStrategy.eachDependency { details ->
+      if (details.requested.group == "org.jitsi" && details.requested.name == "webrtc") {
+        def forcedJitsiWebrtcVersion = rootProject.findProperty("jitsiWebrtcVersion") ?: "124.0.0"
+        details.useVersion(forcedJitsiWebrtcVersion)
+      }
+    }
+  }
   repositories {
     maven {
       // All of React Native (JS, Obj-C sources, Android binaries) is installed from npm
@@ -29,6 +37,7 @@ allprojects {
 
     google()
     mavenCentral()
+    maven { url 'https://jitpack.io' }
     maven { url 'https://www.jitpack.io' }
   }
 }

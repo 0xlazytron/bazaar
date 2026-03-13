@@ -1,0 +1,95 @@
+FitActions.com Full Redesign Proposal (Modeled After fitness.techfusionhouse.com)
+
+Prepared For: FitActions
+Prepared By: Shahbaz Ahmad and Dev Team
+Date: 2026-01-24
+
+1) Project Summary
+FitActions.com will be fully redesigned to match the look, structure, and conversion-focused layout style of:
+https://fitness.techfusionhouse.com/
+
+The new website will present FitActions as the home-workout authority for women with clear program positioning, strong calls-to-action, and a streamlined content architecture.
+
+
+2) Project Goals
+- Redesign FitActions.com to closely mirror the reference site’s design language and page structure
+- Improve clarity of offers and user journeys (visitor -> key pages -> CTA -> conversion)
+- Build a scalable site structure with reusable sections/blocks for future growth
+- Organize blog content so it supports key pages with clean internal linking
+- Deliver a fast, mobile-first WordPress experience
+
+
+3) Scope of Work (Included)
+
+3.1 Full WordPress Redesign + Build
+- Homepage redesign and rebuild to match the reference layout style
+- Global design system setup: typography, colors, buttons, spacing, section patterns
+- Responsive implementation for desktop, tablet, and mobile
+- Header, footer, navigation, and consistent CTA placement across the site
+
+3.2 Core Pages (Design + Development)
+Pages to design and build (styled to match the reference site):
+- Total pages: 13–15 pages (final page list confirmed at kickoff)
+- Includes homepage + inner pages aligned to the new design system
+- Typical set (example, adjusted to your current site): Home, About, Services/Programs, Resources, Blog, Quick Healthy Recipes, Client Reviews & Transformations, Contact, Privacy Policy, Terms, and remaining key service/offer pages required to match the reference site structure
+
+3.3 Functionality + Content Structure
+- Menu/navigation restructure so key pages are 1–2 clicks from homepage
+- Blog styling aligned with the new site design
+- Internal linking updates so posts support the most relevant key pages
+- Forms setup (contact/lead capture as currently used)
+- CTA pathways to primary offer (program/coaching/booking/apply—based on current FitActions flow)
+
+3.4 Basic SEO + Performance Setup
+- SEO-friendly URLs and heading structure on new pages
+- Basic on-page SEO framework setup (titles/meta fields ready to populate)
+- Image optimization best practices + caching compatibility
+- Mobile performance best practices (layout efficiency, optimized assets)
+
+3.5 Launch Support
+- Staging environment build and review cycle
+- Pre-launch QA (mobile, layout consistency, core forms)
+- Production launch deployment
+- Short post-launch support window for fixes
+
+
+4) Deliverables
+- A redesigned WordPress site modeled after fitness.techfusionhouse.com
+- Reusable page sections/blocks for rapid future page creation
+- Fully redesigned 13–15 pages aligned to the new design system
+- Updated navigation and internal linking structure
+- Launch-ready production deployment
+
+
+5) Timeline (Estimated)
+Estimated total duration: 5–7 weeks
+
+Week 1:
+- Discovery + sitemap alignment + content inventory
+- Design direction lock based on the reference
+
+Weeks 2–3:
+- Homepage build + global components (header/footer/sections)
+- Core templates for pages and blog styling
+
+Weeks 3–4:
+- Inner pages build (13–15 pages total, agreed scope)
+- Content migration and internal linking updates (agreed scope)
+
+Week 5:
+- QA, mobile refinement, performance pass, SEO checks
+
+Week 6 (as needed):
+- Launch + post-launch fixes and stabilization
+
+
+6) Pricing
+Project Fee (medium range): $1,200 – $1,500 USD
+
+
+8) Optional Add-Ons (If Needed)
+- Additional page migrations beyond the agreed scope
+- Advanced SEO package (keyword mapping, schema, content briefs)
+- Email marketing automations (welcome sequences, segmentation)
+- Booking system integration with custom styling (Calendly/Acuity/etc.)
+- Ongoing maintenance + updates (monthly retainer)

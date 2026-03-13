@@ -1,0 +1,18 @@
+2026-03-05T00:15:36.846Z CombinedError: [GraphQL] Entity not authorized: AppEntity[412a8c2d-c44a-459b-863e-3ddad810fe26] (viewer = RegularUserViewerContext[6ede2da9-aef2-407a-b6af-b0ce171b2187], action = READ, ruleIndex = -1)
+2026-03-05T00:15:36.846Z     at makeResult (C:/Users/Hp/AppData/Roaming/nvm/v22.12.0/node_modules/eas-cli/node_modules/@urql/core/dist/urql-core-chunk.js:381:43)
+2026-03-05T00:15:36.846Z     at fetchOperation (C:/Users/Hp/AppData/Roaming/nvm/v22.12.0/node_modules/eas-cli/node_modules/@urql/core/dist/urql-core-chunk.js:744:71)
+2026-03-05T00:15:36.846Z     at async C:/Users/Hp/AppData/Roaming/nvm/v22.12.0/node_modules/eas-cli/node_modules/wonka/dist/wonka.js:346:20
+2026-03-05T00:20:15.558Z CombinedError: [GraphQL] Entity not authorized: AppEntity[412a8c2d-c44a-459b-863e-3ddad810fe26] (viewer = RegularUserViewerContext[6ede2da9-aef2-407a-b6af-b0ce171b2187], action = READ, ruleIndex = -1)
+2026-03-05T00:20:15.559Z     at makeResult (C:/Users/Hp/AppData/Roaming/nvm/v22.12.0/node_modules/eas-cli/node_modules/@urql/core/dist/urql-core-chunk.js:381:43)
+2026-03-05T00:20:15.559Z     at fetchOperation (C:/Users/Hp/AppData/Roaming/nvm/v22.12.0/node_modules/eas-cli/node_modules/@urql/core/dist/urql-core-chunk.js:744:71)
+2026-03-05T00:20:15.559Z     at async C:/Users/Hp/AppData/Roaming/nvm/v22.12.0/node_modules/eas-cli/node_modules/wonka/dist/wonka.js:346:20
+2026-03-05T00:29:32.594Z CombinedError: [GraphQL] Entity not authorized: AppEntity[412a8c2d-c44a-459b-863e-3ddad810fe26] (viewer = RegularUserViewerContext[6ede2da9-aef2-407a-b6af-b0ce171b2187], action = READ, ruleIndex = -1)
+2026-03-05T00:29:32.594Z     at makeResult (C:/Users/Hp/AppData/Roaming/nvm/v22.12.0/node_modules/eas-cli/node_modules/@urql/core/dist/urql-core-chunk.js:381:43)
+2026-03-05T00:29:32.594Z     at fetchOperation (C:/Users/Hp/AppData/Roaming/nvm/v22.12.0/node_modules/eas-cli/node_modules/@urql/core/dist/urql-core-chunk.js:744:71)
+2026-03-05T00:29:32.594Z     at async C:/Users/Hp/AppData/Roaming/nvm/v22.12.0/node_modules/eas-cli/node_modules/wonka/dist/wonka.js:346:20
+2026-03-05T00:35:14.499Z Error: Aborted
+2026-03-05T00:35:14.499Z     at Object.error (C:/Users/Hp/AppData/Roaming/nvm/v22.12.0/node_modules/eas-cli/node_modules/@oclif/core/lib/errors/index.js:28:15)
+2026-03-05T00:35:14.499Z     at AccountLogin.runAsync (C:/Users/Hp/AppData/Roaming/nvm/v22.12.0/node_modules/eas-cli/build/commands/account/login.js:42:31)
+2026-03-05T00:35:14.499Z     at async AccountLogin.run (C:/Users/Hp/AppData/Roaming/nvm/v22.12.0/node_modules/eas-cli/build/commandUtils/EasCommand.js:168:16)
+2026-03-05T00:35:14.499Z     at async AccountLogin._run (C:/Users/Hp/AppData/Roaming/nvm/v22.12.0/node_modules/eas-cli/node_modules/@oclif/core/lib/command.js:80:22)
+2026-03-05T00:35:14.499Z     at async Config.runCommand (C:/Users/Hp/AppData/Roaming/nvm/v22.12.0/node_modules/eas-cli/node_modules/@oclif/core/lib/config/config.js:301:25)

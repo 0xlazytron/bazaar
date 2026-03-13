@@ -4,6 +4,12 @@ apply plugin: "com.facebook.react"
 
 def projectRoot = rootDir.getAbsoluteFile().getParentFile().getAbsolutePath()
 
+def easBuildGradle = file("eas-build.gradle")
+def isEasBuild = easBuildGradle.exists()
+if (isEasBuild) {
+    apply from: easBuildGradle
+}
+
 /**
  * This is the configuration block to customize your React Native Android app.
  * By default you don't need to apply any configuration, just uncomment the lines you need.
@@ -81,17 +87,6 @@ def enableProguardInReleaseBuilds = (findProperty('android.enableProguardInRelea
  */
 def jscFlavor = 'io.github.react-native-community:jsc-android:2026004.+'
 
-def releaseStoreFile = project.findProperty('RELEASE_STORE_FILE') ?: System.getenv('ANDROID_KEYSTORE_PATH')
-def releaseStorePassword = project.findProperty('RELEASE_STORE_PASSWORD') ?: System.getenv('ANDROID_KEYSTORE_PASSWORD')
-def releaseKeyAlias = project.findProperty('RELEASE_KEY_ALIAS') ?: System.getenv('ANDROID_KEY_ALIAS')
-def releaseKeyPassword = project.findProperty('RELEASE_KEY_PASSWORD') ?: System.getenv('ANDROID_KEY_PASSWORD')
-def isReleaseAabRequested = gradle.startParameter.taskNames.any { it.toLowerCase().contains('bundlerelease') }
-def isReleaseSigningConfigured = releaseStoreFile && releaseStorePassword && releaseKeyAlias && releaseKeyPassword
-
-if (isReleaseAabRequested && !isReleaseSigningConfigured) {
-    throw new GradleException("Release signing is not configured. Set RELEASE_STORE_FILE, RELEASE_STORE_PASSWORD, RELEASE_KEY_ALIAS, RELEASE_KEY_PASSWORD (Gradle properties) or ANDROID_KEYSTORE_PATH, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD (env).")
-}
-
 android {
     ndkVersion rootProject.ext.ndkVersion
 
@@ -103,8 +98,8 @@ android {
         applicationId 'com.bazaar.mu'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0.0"
+        versionCode 3
+        versionName "1.0.1"
     }
     signingConfigs {
         debug {
@@ -112,14 +107,6 @@ android {
             storePassword 'android'
             keyAlias 'androiddebugkey'
             keyPassword 'android'
-        }
-        release {
-            if (isReleaseSigningConfigured) {
-                storeFile file(releaseStoreFile)
-                storePassword releaseStorePassword
-                keyAlias releaseKeyAlias
-                keyPassword releaseKeyPassword
-            }
         }
     }
     buildTypes {
@@ -129,7 +116,7 @@ android {
         release {
             // Caution! In production, you need to generate your own keystore file.
             // see https://reactnative.dev/docs/signed-apk-android.
-            signingConfig (isReleaseSigningConfigured ? signingConfigs.release : signingConfigs.debug)
+            signingConfig (isEasBuild ? signingConfigs.release : signingConfigs.debug)
             shrinkResources (findProperty('android.enableShrinkResourcesInReleaseBuilds')?.toBoolean() ?: false)
             minifyEnabled enableProguardInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"

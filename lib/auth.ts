@@ -11,6 +11,7 @@ import {
   User,
 } from "firebase/auth";
 import { doc, getDoc, onSnapshot, setDoc } from "firebase/firestore";
+import Constants from "expo-constants";
 import { Platform } from "react-native";
 import { auth, db, isFirebaseReady } from "./firebase";
 
@@ -77,8 +78,23 @@ export const signInWithEmail = async (
 };
 
 // Google OAuth configuration
+const getExtra = () => {
+  const anyConstants = Constants as any;
+  return (
+    Constants.expoConfig?.extra ??
+    anyConstants?.manifest?.extra ??
+    anyConstants?.manifest2?.extra ??
+    {}
+  );
+};
+
+const getGoogleWebClientId = () =>
+  process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ||
+  (getExtra() as any)?.googleWebClientId ||
+  "";
+
 const getGoogleAuthConfig = () => {
-  const webClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
+  const webClientId = getGoogleWebClientId();
   if (!webClientId) {
     console.warn(
       "Google Web Client ID not found in environment variables. Google Sign-In may not work properly.",
@@ -113,7 +129,7 @@ const getAndroidWebClientId = async (): Promise<string> => {
     const clientId = typeof web?.client_id === "string" ? web.client_id : "";
     if (clientId) return clientId;
   } catch { }
-  return process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || "";
+  return getGoogleWebClientId();
 };
 
 // Sign in with Google
@@ -128,7 +144,7 @@ export const signInWithGoogle = async () => {
       const webClientId =
         Platform.OS === "android"
           ? await getAndroidWebClientId()
-          : process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || "";
+          : getGoogleWebClientId();
       if (!webClientId) {
         throw new Error(
           "Google Web Client ID not found in environment variables",
