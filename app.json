@@ -2,7 +2,7 @@
   "expo": {
     "name": "bazaar",
     "slug": "bazaar",
-    "version": "1.0.0",
+    "version": "1.1.2",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "scheme": "bazaar",
@@ -16,7 +16,8 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.bazaar.mu",
-      "googleServicesFile": "./ios/GoogleService-Info.plist",
+      "buildNumber": "11",
+      "googleServicesFile": "./config/GoogleService-Info.plist",
       "infoPlist": {
         "NSCameraUsageDescription": "Camera access is required for video calls",
         "NSMicrophoneUsageDescription": "Microphone access is required for voice and video calls",
@@ -32,7 +33,7 @@
       },
       "edgeToEdgeEnabled": true,
       "package": "com.bazaar.mu",
-      "versionCode": 3,
+      "versionCode": 9,
       "permissions": [
         "INTERNET",
         "CAMERA",
@@ -75,6 +76,10 @@
             "buildToolsVersion": "35.0.0",
             "gradleVersion": "8.13",
             "androidGradlePluginVersion": "8.7.1"
+          },
+          "ios": {
+            "deploymentTarget": "16.0",
+            "useFrameworks": "static"
           }
         }
       ],
