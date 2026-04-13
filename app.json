@@ -7,7 +7,7 @@
     "icon": "./assets/icon.png",
     "scheme": "bazaar",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": false,
+    "newArchEnabled": true,
     "splash": {
       "image": "./assets/images/logo/logo.png",
       "resizeMode": "contain",
@@ -16,7 +16,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.bazaar.mu",
-      "buildNumber": "11",
+      "buildNumber": "13",
       "googleServicesFile": "./config/GoogleService-Info.plist",
       "infoPlist": {
         "NSCameraUsageDescription": "Camera access is required for video calls",
